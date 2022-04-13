@@ -1,6 +1,10 @@
 package kode
 
-import "errors"
+import (
+	"errors"
+	"strconv"
+	"strings"
+)
 
 /**
  * Evaluate an expression.
@@ -8,10 +12,10 @@ import "errors"
  * @return string - The result of the expression.
  * @return error - The error if any.
  */
-func EvaluateExpression(str string) (string, error) {
+func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 	// Tokenize the line
-	tokens := inlineParse(str)
+	tokens := InlineParse(str, " \t\n\r*/+-()¬^%")
 	// Replace proper substractions with negation
 	tokens = CheckForNegation(tokens)
 
@@ -32,7 +36,29 @@ func EvaluateExpression(str string) (string, error) {
 
 		// Check if the token is a number
 		if IsNumber(token.(string)) {
-			values.Push(token.(string)) // Push the number to the values stack
+
+			// Is float?
+			if strings.Contains(token.(string), ".") {
+				val, _ := strconv.ParseFloat(token.(string), 64)
+				values.Push(CreateVariable(val)) // Push the number to the values stack
+			} else {
+				val, _ := strconv.ParseInt(token.(string), 10, 64)
+				values.Push(CreateVariable(val)) // Push the number to the values stack
+			}
+
+			// Check if the token is a boolean
+		} else if IsBoolean(token.(string)) {
+
+			if token.(string) == "true" {
+				values.Push(CreateVariable(true))
+			} else {
+				values.Push(CreateVariable(false))
+			}
+
+			// Check if the token is a variable
+		} else if (*scope).VariableExists(token.(string)) {
+
+			values.Push((*scope).GetVariable(token.(string)))
 
 			// Check if the token is a left parenthesis
 		} else if token.(string) == "(" {
@@ -44,7 +70,7 @@ func EvaluateExpression(str string) (string, error) {
 
 			// Check if the operators stack is empty
 			if !valid {
-				return "", errors.New("Error: Invalid expression. Missing a \"(\".")
+				return Variable{}, errors.New("Error: Invalid expression. Missing a \"(\"")
 			}
 
 			for peeked.(string) != "(" {
@@ -53,22 +79,23 @@ func EvaluateExpression(str string) (string, error) {
 				operator, valid := operators.Pop()
 
 				if !valid {
-					return "", errors.New("Error: Invalid expression. Missing a \"(\".")
+					return Variable{}, errors.New("Error: Invalid expression. Missing a \"(\"")
 				}
 
 				// Check for negation
 				if operator.(string) == "¬" {
 					val2, exists2 := values.Pop()
+
 					if !exists2 {
-						return "", errors.New("Error: Invalid expression.")
+						return Variable{}, errors.New("Error: Invalid expression 1")
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), "0", val2.(string))
+					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
 
 					// Handle any operation errors
 					if opError != nil {
-						return "", opError
+						return Variable{}, opError
 					}
 
 					values.Push(result) // Push the result to the values stack
@@ -78,15 +105,15 @@ func EvaluateExpression(str string) (string, error) {
 					val2, exists2 := values.Pop()
 					val1, exists1 := values.Pop()
 					if !exists1 || !exists2 {
-						return "", errors.New("Error: Invalid expression.")
+						return Variable{}, errors.New("Error: Invalid expression 2")
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), val1.(string), val2.(string))
+					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
 
 					// Handle any operation errors
 					if opError != nil {
-						return "", opError
+						return Variable{}, opError
 					}
 
 					values.Push(result) // Push the result to the values stack
@@ -95,7 +122,7 @@ func EvaluateExpression(str string) (string, error) {
 				peeked, valid = operators.Peek()
 
 				if !valid {
-					return "", errors.New("Error: Invalid expression.")
+					return Variable{}, errors.New("Error: Invalid expression 3")
 				}
 			}
 
@@ -116,15 +143,15 @@ func EvaluateExpression(str string) (string, error) {
 				if operator.(string) == "¬" {
 					val2, exists2 := values.Pop()
 					if !exists2 {
-						return "", errors.New("Error: Invalid expression.")
+						return Variable{}, errors.New("Error: Invalid expression 4")
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), "0", val2.(string))
+					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
 
 					// Handle any operation errors
 					if opError != nil {
-						return "", opError
+						return Variable{}, opError
 					}
 
 					values.Push(result) // Push the result to the values stack
@@ -134,15 +161,15 @@ func EvaluateExpression(str string) (string, error) {
 					val2, exists2 := values.Pop()
 					val1, exists1 := values.Pop()
 					if !exists1 || !exists2 {
-						return "", errors.New("Error: Invalid expression.")
+						return Variable{}, errors.New("Error: Invalid expression 5")
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), val1.(string), val2.(string))
+					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
 
 					// Handle any operation errors
 					if opError != nil {
-						return "", opError
+						return Variable{}, opError
 					}
 
 					values.Push(result) // Push the result to the values stack
@@ -164,15 +191,15 @@ func EvaluateExpression(str string) (string, error) {
 		if operator.(string) == "¬" {
 			val2, exists2 := values.Pop()
 			if !exists2 {
-				return "", errors.New("Error: Invalid expression.")
+				return Variable{}, errors.New("Error: Invalid expression 7")
 			}
 
 			// Compute the result
-			result, opError := ApplyOperator(operator.(string), "0", val2.(string))
+			result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
 
 			// Handle any operation errors
 			if opError != nil {
-				return "", opError
+				return Variable{}, opError
 			}
 
 			values.Push(result) // Push the result to the values stack
@@ -182,15 +209,15 @@ func EvaluateExpression(str string) (string, error) {
 			val2, exists2 := values.Pop()
 			val1, exists1 := values.Pop()
 			if !exists1 || !exists2 {
-				return "", errors.New("Error: Invalid expression.")
+				return Variable{}, errors.New("Error: Invalid expression 8")
 			}
 
 			// Compute the result
-			result, opError := ApplyOperator(operator.(string), val1.(string), val2.(string))
+			result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
 
 			// Handle any operation errors
 			if opError != nil {
-				return "", opError
+				return Variable{}, opError
 			}
 
 			values.Push(result) // Push the result to the values stack
@@ -201,9 +228,9 @@ func EvaluateExpression(str string) (string, error) {
 	value, exists := values.Pop()
 
 	if !exists {
-		return "", errors.New("Error: Empty expression.")
+		return Variable{}, errors.New("Error: Empty expression")
 	}
 
-	return value.(string), nil
+	return value.(Variable), nil
 
 }

@@ -1,13 +1,15 @@
 package kode
 
-import "strings"
+import (
+	"strings"
+)
 
 /**
  * Parse the individual lines of code.
  * @param txt : string - The code to parse.
  * @return []string - The parsed code.
  */
-func lineParse(txt string) []string {
+func LineParse(txt string) []string {
 	return strings.Split(txt, "\n")
 }
 
@@ -16,7 +18,7 @@ func lineParse(txt string) []string {
  * @param txt : string - The code to parse.
  * @return []string - The parsed code.
  */
-func inlineParse(txt string) []string {
+func InlineParse(txt string, delimiters string) []string {
 
 	word := ""
 	words := []string{}
@@ -24,7 +26,7 @@ func inlineParse(txt string) []string {
 	for _, char := range txt {
 		// Add char if it isn't one of the delimiters
 
-		if !strings.ContainsAny(string(char), " \t\n\r*/+-()¬^%") {
+		if !strings.ContainsAny(string(char), delimiters) {
 			word += string(char)
 			continue
 		}

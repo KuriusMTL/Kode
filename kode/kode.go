@@ -1,28 +1,23 @@
 package kode
 
-func Run(code string) {
+func Run(code string) error {
 
 	// Return if the code is empty.
 	if code == "" {
-		return
+		return nil
 	}
 
-	// Split the code into lines.
-	lines := lineParse(code)
+	// Create a new main scope.
+	scope := CreateFunction(map[string]Variable{}, map[string]Variable{}, code)
 
-	// Loop through the lines.
-	for _, line := range lines {
+	// Enter the main scope.
+	_, err := scope.Run(map[string]Variable{})
 
-		result, err := EvaluateExpression(line)
-
-		// Check for any runtime errors.
-		if err != nil {
-			panic(err)
-		}
-
-		// Print the result.
-		println(result)
-
+	if err == nil {
+		print("Result variable: ")
+		println(scope.GetVariable("result").Value.(int64))
 	}
+
+	return err
 
 }

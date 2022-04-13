@@ -14,3 +14,12 @@ func IsNumber(str string) bool {
 	_, err := strconv.ParseFloat(str, 64)
 	return err == nil
 }
+
+/**
+ * Evaluate if a string is a boolean
+ * @param str : string - The string to evaluate.
+ * @return bool - True if the string is a boolean.
+ */
+func IsBoolean(str string) bool {
+	return str == "true" || str == "false"
+}

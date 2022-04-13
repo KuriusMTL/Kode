@@ -3,8 +3,26 @@ package kode
 import (
 	"errors"
 	"math"
-	"strconv"
+	"strings"
 )
+
+/**
+ * Replace appropriate substraction operators in an expression with negation operators.
+ * @param tokens : []string - The tokens to evaluate.
+ * @return []string - The tokens with appropriate substraction operators replaced with negation operators.
+ */
+func CheckForNegation(tokens []string) []string {
+	for i := 0; i < len(tokens); i++ {
+		if tokens[i] == "-" {
+			if i == 0 {
+				tokens[i] = "¬"
+			} else if isOperator(tokens[i-1]) {
+				tokens[i] = "¬"
+			}
+		}
+	}
+	return tokens
+}
 
 /**
  * Evaluate the precedence of an operator.
@@ -40,42 +58,305 @@ func isOperator(op string) bool {
 	}
 }
 
-func ApplyOperator(op string, val1 string, val2 string) (string, error) {
-	v1, _ := strconv.Atoi(val1)
-	v2, _ := strconv.Atoi(val2)
+func ApplyOperator(op string, val1 Variable, val2 Variable) (Variable, error) {
 
 	switch op {
 	case "+":
-		return strconv.Itoa(v1 + v2), nil
+		return val1.Add(&val2)
 	case "-":
-		return strconv.Itoa(v1 - v2), nil
+		return val1.Sub(&val2)
 	case "*":
-		return strconv.Itoa(v1 * v2), nil
+		return val1.Mult(&val2)
 	case "/":
-		if v2 == 0 {
-			return "", errors.New("Error: Division by zero.")
-		}
-		return strconv.Itoa(v1 / v2), nil
+		return val1.Div(&val2)
 	case "^":
-		return strconv.Itoa(int(math.Pow(float64(v1), float64(v2)))), nil
+		return val1.Pow(&val2)
 	case "%":
-		return strconv.Itoa(v1 % v2), nil
+		return val1.Mod(&val2)
 	case "¬":
-		return strconv.Itoa(-v2), nil
+		return val2.Neg()
 	default:
-		return "", errors.New("Error: Invalid operation or operation not implemented.")
+		return Variable{}, errors.New("Error: Invalid operator (" + op + ")")
 	}
 }
 
-func CheckForNegation(tokens []string) []string {
-	for i := 0; i < len(tokens); i++ {
-		if tokens[i] == "-" {
-			if i == 0 {
-				tokens[i] = "¬"
-			} else if isOperator(tokens[i-1]) {
-				tokens[i] = "¬"
-			}
+func (val1 *Variable) Add(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "int", Value: (*val1).Value.(int64) + (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) + (*val2).Value.(float64)}, nil
+		} else {
+			break
 		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "float", Value: (*val1).Value.(float64) + float64((*val2).Value.(int64))}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: (*val1).Value.(float64) + (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	case "string":
+
+		if (*val2).Type == "string" {
+			return Variable{Type: "string", Value: (*val1).Value.(string) + (*val2).Value.(string)}, nil
+		} else {
+			break
+		}
+
+	case "bool":
+
+		if (*val2).Type == "bool" {
+			return Variable{Type: "bool", Value: (*val1).Value.(bool) || (*val2).Value.(bool)}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
 	}
-	return tokens
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " + " + (*val2).Type + ") operation with addition")
+}
+
+func (val1 *Variable) Sub(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+
+			return Variable{Type: "int", Value: (*val1).Value.(int64) - (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+
+			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) - (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) - float64((*val2).Value.(int64))}, nil
+		} else if (*val2).Type == "float" {
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) - (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " - " + (*val2).Type + ") operation with substraction")
+}
+
+func (val1 *Variable) Mult(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "int", Value: (*val1).Value.(int64) * (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) * (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "float", Value: (*val1).Value.(float64) * float64((*val2).Value.(int64))}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: (*val1).Value.(float64) * (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	case "string":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "string", Value: strings.Repeat((*val1).Value.(string), int((*val2).Value.(int64)))}, nil
+		} else {
+			break
+		}
+
+	case "bool":
+
+		if (*val2).Type == "bool" {
+			return Variable{Type: "bool", Value: (*val1).Value.(bool) && (*val2).Value.(bool)}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " * " + (*val2).Type + ") operation with multiplication")
+}
+
+func (val1 *Variable) Div(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+
+			if (*val2).Value.(int64) == 0 {
+				return Variable{}, errors.New("Error: Division by zero")
+			}
+
+			return Variable{Type: "int", Value: (*val1).Value.(int64) / (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+
+			if (*val2).Value.(float64) == 0 {
+				return Variable{}, errors.New("Error: Division by zero")
+			}
+
+			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) / (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+
+			if (*val2).Value.(int64) == 0 {
+				return Variable{}, errors.New("Error: Division by zero")
+			}
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) / float64((*val2).Value.(int))}, nil
+		} else if (*val2).Type == "float" {
+
+			if (*val2).Value.(float64) == 0 {
+				return Variable{}, errors.New("Error: Division by zero")
+			}
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) / (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " / " + (*val2).Type + ") operation with division")
+}
+
+func (val1 *Variable) Pow(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "int", Value: int64(math.Pow(float64((*val1).Value.(int64)), float64((*val2).Value.(int64))))}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: math.Pow(float64((*val1).Value.(int64)), (*val2).Value.(float64))}, nil
+		} else {
+			break
+		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+			return Variable{Type: "float", Value: math.Pow((*val1).Value.(float64), float64((*val2).Value.(int64)))}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "float", Value: math.Pow((*val1).Value.(float64), (*val2).Value.(float64))}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " ^ " + (*val2).Type + ") operation with exponent")
+}
+
+func (val1 *Variable) Mod(val2 *Variable) (Variable, error) {
+	switch (*val1).Type {
+	case "int":
+
+		if (*val2).Type == "int" {
+
+			if (*val2).Value.(int64) == 0 {
+				return Variable{}, errors.New("Error: Modulo by zero")
+			}
+
+			return Variable{Type: "int", Value: (*val1).Value.(int64) % (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+
+			if (*val2).Value.(float64) == 0 {
+				return Variable{}, errors.New("Error: Modulo by zero")
+			}
+
+			k := math.Floor(float64((*val1).Value.(int64)) / (*val2).Value.(float64))
+
+			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) - (*val2).Value.(float64)*k}, nil
+		} else {
+			break
+		}
+
+	case "float":
+
+		if (*val2).Type == "int" {
+
+			if (*val2).Value.(int64) == 0 {
+				return Variable{}, errors.New("Error: Modulo by zero")
+			}
+
+			k := math.Floor((*val1).Value.(float64) / float64((*val2).Value.(int64)))
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) - float64((*val2).Value.(int64))*k}, nil
+		} else if (*val2).Type == "float" {
+
+			if (*val2).Value.(float64) == 0 {
+				return Variable{}, errors.New("Error: Modulo by zero")
+			}
+
+			k := math.Floor((*val1).Value.(float64) / val2.Value.(float64))
+
+			return Variable{Type: "float", Value: (*val1).Value.(float64) - (*val2).Value.(float64)*k}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " % " + (*val2).Type + ") operation with modulo")
+}
+
+func (val1 *Variable) Neg() (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+
+		return Variable{Type: "int", Value: -(*val1).Value.(int64)}, nil
+
+	case "float":
+
+		return Variable{Type: "float", Value: -(*val1).Value.(float64)}, nil
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + ") operation with negation")
 }

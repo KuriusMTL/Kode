@@ -50,3 +50,10 @@ func (s *Stack) Peek() (interface{}, bool) {
 		return item, true
 	}
 }
+
+/**
+ * Remove all elements from the stack.
+ */
+func (s *Stack) Clear() {
+	*s = (*s)[:0]
+}

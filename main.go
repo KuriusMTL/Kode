@@ -1,7 +1,23 @@
 package main
 
-import "github.com/PersoSirEduard/kode/kode"
+import (
+	"io/ioutil"
+
+	"github.com/PersoSirEduard/kode/kode"
+)
 
 func main() {
-	kode.Run("(5+3*-2) ^ 2 + -(2+3)")
+
+	code, err := ioutil.ReadFile("program.k")
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = kode.Run(string(code))
+
+	if err != nil {
+		panic(err)
+	}
+
 }
