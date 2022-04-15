@@ -15,7 +15,7 @@ import (
 func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 	// Tokenize the line
-	tokens := InlineParse(str, " \t\n\r*/+-()¬^%")
+	tokens := InlineParse(str, []string{" ", "\t", "\r", "\n", "*", "/", "+", "-", "(", ")", "¬", "^", "%", "\""}, true)
 	// Replace proper substractions with negation
 	tokens = CheckForNegation(tokens)
 
@@ -53,6 +53,28 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				values.Push(CreateVariable(true))
 			} else {
 				values.Push(CreateVariable(false))
+			}
+
+			// Check if the token is a string
+		} else if token.(string) == "\"" {
+
+			token = "" // Remove the "
+
+			// Loop through the tokens until the next "
+			nextToken, hasNextToken := queue.Pop()
+
+			for hasNextToken && nextToken.(string) != "\"" {
+				token = token.(string) + nextToken.(string)
+				nextToken, hasNextToken = queue.Pop()
+			}
+
+			// Check for incomplete string
+			if nextToken == nil || nextToken.(string) != "\"" {
+				return Variable{}, errors.New("Error: Missing closing quote for string")
+			} else {
+
+				// Add the string to the values stack
+				values.Push(CreateVariable(token.(string)))
 			}
 
 			// Check if the token is a variable

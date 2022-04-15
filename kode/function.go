@@ -41,9 +41,10 @@ func (scope *Function) Run(arguments interface{}) (interface{}, error) {
 
 		// Get the command tokens of the line.
 		tokens := Queue{}
-		tokensArr := InlineParse(line, " \t\r=#")
+		tokensArr := InlineParse(line, []string{" ", "\t", "\r", "=", "#", "\""}, true)
 		for _, token := range tokensArr {
 			tokens.Push(token)
+			// println(token)
 		}
 
 		for !tokens.IsEmpty() {
@@ -65,24 +66,24 @@ func (scope *Function) Run(arguments interface{}) (interface{}, error) {
 
 				// Check if the name for the variable was provided
 				if !nameProvided {
-					return nil, errors.New("Error on line " + strconv.Itoa(currentLine) + ": Missing variable name.")
+					return nil, errors.New("Error: Missing variable name on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Check if the variable name is valid
 				if !HasValidVariableName(name.(string)) {
-					return nil, errors.New("Error on line " + strconv.Itoa(currentLine) + ": Invalid variable name. The name must be alphanumeric and start with a letter.")
+					return nil, errors.New("Error: Invalid variable name on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
 				}
 
 				// Check if the variable name is already in use
 				if (*scope).VariableExists(name.(string)) {
-					return nil, errors.New("Error on line " + strconv.Itoa(currentLine) + ": Variable was already defined.")
+					return nil, errors.New("Error: Variable was already defined on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				equal, assign := tokens.Pop()
 
 				// Check if the variable has an assignments
 				if !assign || equal.(string) != "=" {
-					return nil, errors.New("Error on line " + strconv.Itoa(currentLine) + ": Missing variable assignment \"=\".")
+					return nil, errors.New("Error: Missing variable assignment \"=\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Get the rest of the line tokens and join them to feed the variable.
@@ -100,13 +101,13 @@ func (scope *Function) Run(arguments interface{}) (interface{}, error) {
 
 				// Make sure the variable value is valid
 				if value == "" {
-					return nil, errors.New("Error on line " + strconv.Itoa(currentLine) + ": Missing variable value.")
+					return nil, errors.New("Error: Missing variable value on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Create the variable.
 				evaluatedValue, err := EvaluateExpression(scope, value)
 				if err != nil {
-					return nil, err
+					return nil, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Create the variable in the current scope.
@@ -117,7 +118,7 @@ func (scope *Function) Run(arguments interface{}) (interface{}, error) {
 				break
 			default:
 				// Command not found
-				return nil, errors.New("Error: Unknown command.")
+				return nil, errors.New("Error: Unknown command \"" + command.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 			}
 
 		}

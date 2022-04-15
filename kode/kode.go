@@ -14,8 +14,14 @@ func Run(code string) error {
 	_, err := scope.Run(map[string]Variable{})
 
 	if err == nil {
-		print("Result variable: ")
-		println(scope.GetVariable("result").Value.(int64))
+		print("string1: ")
+		println(scope.GetVariable("string1").Value.(string))
+
+		print("string2: ")
+		println(scope.GetVariable("string2").Value.(string))
+
+		print("result: ")
+		println(scope.GetVariable("result").Value.(string))
 	}
 
 	return err

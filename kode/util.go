@@ -23,3 +23,15 @@ func IsNumber(str string) bool {
 func IsBoolean(str string) bool {
 	return str == "true" || str == "false"
 }
+
+/**
+ * While a queue is filled with a token, pop the next token.
+ * @param queue : Queue - The queue to pop the next token from.
+ * @return string - The next token.
+ */
+func SkipWhileTokenNext(queue *Queue, value string) {
+	nextToken, _ := (*queue).Pop()
+	for nextToken != nil && nextToken.(string) == value {
+		nextToken, _ = (*queue).Pop()
+	}
+}
