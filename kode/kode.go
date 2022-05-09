@@ -1,5 +1,7 @@
 package kode
 
+import "strings"
+
 func Run(code string) error {
 
 	// Return if the code is empty.
@@ -8,21 +10,10 @@ func Run(code string) error {
 	}
 
 	// Create a new main scope.
-	scope := CreateFunction(map[string]Variable{}, map[string]Variable{}, code)
+	scope := CreateFunction([]Argument{}, nil, "null", nil, strings.ReplaceAll(code, "\r", " "))
 
 	// Enter the main scope.
-	_, err := scope.Run(map[string]Variable{})
-
-	if err == nil {
-		print("string1: ")
-		println(scope.GetVariable("string1").Value.(string))
-
-		print("string2: ")
-		println(scope.GetVariable("string2").Value.(string))
-
-		print("result: ")
-		println(scope.GetVariable("result").Value.(string))
-	}
+	_, _, err := scope.Run([]*Variable{}, map[string]*Variable{})
 
 	return err
 

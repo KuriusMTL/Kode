@@ -1,6 +1,8 @@
 package kode
 
-import "regexp"
+import (
+	"regexp"
+)
 
 type Variable struct {
 	Value interface{}
@@ -22,13 +24,17 @@ func CreateVariable(value interface{}) Variable {
 }
 
 /**
- * Check if a variable exists.
+ * Check if a variable exists within a scope (funcion).
  * @param name : string - The name of the variable.
  * @return bool - True if the variable exists, false otherwise.
  */
 func (function *Function) VariableExists(name string) bool {
-	_, ok := (*function).Variables[name]
-	return ok
+	val, ok := (*function).Variables[name]
+	if ok && val != nil {
+		return true
+	} else {
+		return false
+	}
 }
 
 /**
@@ -36,7 +42,7 @@ func (function *Function) VariableExists(name string) bool {
  * @param name : string - The name of the variable.
  * @return Variable - The value of the variable.
  */
-func (function *Function) GetVariable(name string) Variable {
+func (function *Function) GetVariable(name string) *Variable {
 	return (*function).Variables[name]
 }
 
@@ -46,7 +52,54 @@ func (function *Function) GetVariable(name string) Variable {
  * @return bool - True if the variable has a valid name, false otherwise.
  */
 func HasValidVariableName(name string) bool {
-	return varFormat.MatchString(name)
+	return varFormat.MatchString(name) && !IsReservedWord(name)
+}
+
+func IsReservedWord(name string) bool {
+	switch name {
+	case "null":
+		return true
+	case "true":
+		return true
+	case "false":
+		return true
+	case "if":
+		return true
+	case "else":
+		return true
+	case "val":
+		return true
+	case "string":
+		return true
+	case "int":
+		return true
+	case "float":
+		return true
+	case "bool":
+		return true
+	case "func":
+		return true
+	case "return":
+		return true
+	case "self":
+		return true
+	case "new":
+		return true
+	case "print":
+		return true
+	case "toString":
+		return true
+	case "toInt":
+		return true
+	case "toFloat":
+		return true
+	case "yell":
+		return true
+	case "whisper":
+		return true
+	default:
+		return false
+	}
 }
 
 /**
@@ -64,9 +117,44 @@ func EvaluateType(value interface{}) string {
 		return "string"
 	case bool:
 		return "bool"
+	case Function:
+		return "func"
 	case int:
 		return "illegal_int"
 	default:
-		return "unknown"
+		return "null"
+	}
+}
+
+/**
+ * Get the default value of a variable type.
+ * @param typeName : string - The name of the variable type.
+ * @return interface{} - The default value of the variable type.
+ */
+func GetDefaultValue(typeName string) interface{} {
+	switch typeName {
+	case "int":
+		return int64(0)
+	case "float":
+		return float64(0)
+	case "string":
+		return ""
+	case "bool":
+		return false
+	case "func":
+		return nil
+	default:
+		return nil
+	}
+}
+
+/**
+ * Get a null variable.
+ * @return *Variable - The null variable.
+ */
+func NullVariable() *Variable {
+	return &Variable{
+		Value: nil,
+		Type:  "null",
 	}
 }

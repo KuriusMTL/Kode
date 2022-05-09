@@ -12,13 +12,18 @@ import (
  * @return []string - The tokens with appropriate substraction operators replaced with negation operators.
  */
 func CheckForNegation(tokens []string) []string {
+
+	betweenQuotes := false
+
 	for i := 0; i < len(tokens); i++ {
-		if tokens[i] == "-" {
+		if tokens[i] == "-" && !betweenQuotes {
 			if i == 0 {
 				tokens[i] = "¬"
 			} else if isOperator(tokens[i-1]) {
 				tokens[i] = "¬"
 			}
+		} else if tokens[i] == "\"" {
+			betweenQuotes = !betweenQuotes
 		}
 	}
 	return tokens
@@ -31,14 +36,16 @@ func CheckForNegation(tokens []string) []string {
  */
 func OperatorPrecedence(op string) int {
 	switch op {
-	case "+", "-":
+	case "is", "==", "!=", ">", "<", ">=", "<=", "or", "and", "not":
 		return 1
-	case "*", "/":
+	case "+", "-":
 		return 2
-	case "^", "%":
+	case "*", "/":
 		return 3
-	case "¬":
+	case "^", "%":
 		return 4
+	case "¬":
+		return 5
 	default:
 		return 0
 	}
@@ -51,7 +58,7 @@ func OperatorPrecedence(op string) int {
  */
 func isOperator(op string) bool {
 	switch op {
-	case "+", "-", "*", "/", "¬", "^", "%":
+	case "+", "-", "*", "/", "¬", "^", "%", "==", "!=", ">", "<", ">=", "<=", "is", "not", "or", "and":
 		return true
 	default:
 		return false
@@ -61,11 +68,11 @@ func isOperator(op string) bool {
 func ApplyOperator(op string, val1 Variable, val2 Variable) (Variable, error) {
 
 	switch op {
-	case "+":
+	case "+", "or":
 		return val1.Add(&val2)
 	case "-":
 		return val1.Sub(&val2)
-	case "*":
+	case "*", "and":
 		return val1.Mult(&val2)
 	case "/":
 		return val1.Div(&val2)
@@ -73,8 +80,20 @@ func ApplyOperator(op string, val1 Variable, val2 Variable) (Variable, error) {
 		return val1.Pow(&val2)
 	case "%":
 		return val1.Mod(&val2)
-	case "¬":
+	case "¬", "not":
 		return val2.Neg()
+	case "==", "is":
+		return val1.Equal(&val2)
+	case "!=":
+		return val1.NotEqual(&val2)
+	case ">":
+		return val1.Greater(&val2)
+	case "<":
+		return val1.Less(&val2)
+	case ">=":
+		return val1.GreaterEqual(&val2)
+	case "<=":
+		return val1.LessEqual(&val2)
 	default:
 		return Variable{}, errors.New("Error: Invalid operator (" + op + ")")
 	}
@@ -353,10 +372,205 @@ func (val1 *Variable) Neg() (Variable, error) {
 
 		return Variable{Type: "float", Value: -(*val1).Value.(float64)}, nil
 
+	case "bool":
+
+		return Variable{Type: "bool", Value: !(*val1).Value.(bool)}, nil
+
 	default:
 		break
 	}
 
 	// If incompatible types, return error
 	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + ") operation with negation")
+}
+
+func (val1 *Variable) Equal(val2 *Variable) (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+		if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(int64) == (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: float64((*val1).Value.(int64)) == (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+	case "float":
+		if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) == (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) == float64((*val2).Value.(int64))}, nil
+		} else {
+			break
+		}
+
+	case "string":
+		if (*val2).Type == "string" {
+			return Variable{Type: "bool", Value: (*val1).Value.(string) == (*val2).Value.(string)}, nil
+		} else {
+			break
+		}
+
+	case "bool":
+		if (*val2).Type == "bool" {
+			return Variable{Type: "bool", Value: (*val1).Value.(bool) == (*val2).Value.(bool)}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+}
+
+func (val1 *Variable) NotEqual(val2 *Variable) (Variable, error) {
+	result, err := val1.Equal(val2)
+	if err != nil {
+		return Variable{}, err
+	} else {
+		return Variable{Type: "bool", Value: !(result.Value.(bool))}, nil
+	}
+}
+
+func (val1 *Variable) Greater(val2 *Variable) (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+		if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(int64) > (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: float64((*val1).Value.(int64)) > (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+	case "float":
+		if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) > (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) > float64((*val2).Value.(int64))}, nil
+		} else {
+			break
+		}
+
+	case "string":
+		if (*val2).Type == "string" {
+			return Variable{Type: "bool", Value: len((*val1).Value.(string)) > len((*val2).Value.(string))}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+}
+
+func (val1 *Variable) Less(val2 *Variable) (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+		if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(int64) < (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: float64((*val1).Value.(int64)) < (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+	case "float":
+		if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) < (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) < float64((*val2).Value.(int64))}, nil
+		} else {
+			break
+		}
+
+	case "string":
+		if (*val2).Type == "string" {
+			return Variable{Type: "bool", Value: len((*val1).Value.(string)) < len((*val2).Value.(string))}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+}
+
+func (val1 *Variable) GreaterEqual(val2 *Variable) (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+		if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(int64) >= (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: float64((*val1).Value.(int64)) >= (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+	case "float":
+		if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) >= (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) >= float64((*val2).Value.(int64))}, nil
+		} else {
+			break
+		}
+
+	case "string":
+		if (*val2).Type == "string" {
+			return Variable{Type: "bool", Value: len((*val1).Value.(string)) >= len((*val2).Value.(string))}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+}
+
+func (val1 *Variable) LessEqual(val2 *Variable) (Variable, error) {
+
+	switch (*val1).Type {
+	case "int":
+		if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(int64) <= (*val2).Value.(int64)}, nil
+		} else if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: float64((*val1).Value.(int64)) <= (*val2).Value.(float64)}, nil
+		} else {
+			break
+		}
+	case "float":
+		if (*val2).Type == "float" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) <= (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "int" {
+			return Variable{Type: "bool", Value: (*val1).Value.(float64) <= float64((*val2).Value.(int64))}, nil
+		} else {
+			break
+		}
+
+	case "string":
+		if (*val2).Type == "string" {
+			return Variable{Type: "bool", Value: len((*val1).Value.(string)) <= len((*val2).Value.(string))}, nil
+		} else {
+			break
+		}
+
+	default:
+		break
+	}
+
+	// If incompatible types, return error
+	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
 }

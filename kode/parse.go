@@ -14,109 +14,63 @@ func LineParse(txt string) []string {
 }
 
 /**
- * ! DEPRECATED
  * Parse the individual tokens of a single line of code.
  * @param txt : string - The code to parse.
- * @return []string - The parsed code.
- */
-// func InlineParse(txt string, delimiters string) []string {
-
-// 	word := ""
-// 	words := []string{}
-
-// 	for _, char := range txt {
-// 		// Add char if it isn't one of the delimiters
-
-// 		if !strings.ContainsAny(string(char), delimiters) {
-// 			word += string(char)
-// 			continue
-// 		}
-
-// 		if word != "" {
-// 			words = append(words, word)
-// 			word = ""
-// 		}
-
-// 		// Add the delimiter to the words array
-// 		words = append(words, string(char))
-
-// 	}
-
-// 	// Add the last word to the words array
-// 	if word != "" {
-// 		words = append(words, word)
-// 	}
-
-// 	// Remove empty words
-// 	for i, word := range words {
-// 		if word == " " {
-// 			words = append(words[:i], words[i+1:]...)
-// 		}
-// 	}
-
-// 	return words
-// }
-
-/**
- * Parse the individual tokens of a single line of code.
- * @param txt : string - The code to parse.
- * @return []string - The parsed code.
+ * @param delimiters : []string - Set of delimiters to use. Order defines precedence.
+ * @param includeDelimiter : bool - True if the delimiter should be included in the token.
+ * @return []string - Resulting tokens.
  */
 func InlineParse(txt string, delimiters []string, includeDelimiter bool) []string {
+	tokens := []string{}
 
-	word := ""
-	tempDelimiter := ""
-	words := []string{}
+	tempToken := ""
 
-	for _, char := range txt {
+	for i := 0; i < len(txt); i++ {
+		char := string(txt[i])
+		isDelimiter := false
 
-		count := IsComplete(delimiters, tempDelimiter+string(char))
+		// Check if the current character is forming a delimiter
+		for _, delimiter := range delimiters {
+			delimiterSize := len(delimiter)
 
-		if count > 1 {
-			tempDelimiter += string(char)
-		} else if count == 1 {
-			if word != "" {
-				words = append(words, word)
-			}
-			word = ""
-			if includeDelimiter {
-				words = append(words, tempDelimiter+string(char))
-			}
-			tempDelimiter = ""
-		} else {
-			if IsInArray(delimiters, tempDelimiter) {
-				if word != "" {
-					words = append(words, word)
+			// Check if the following characters are the delimiter
+			if i+delimiterSize <= len(txt) && txt[i:i+delimiterSize] == delimiter {
+
+				// Dump the current token if it is not empty
+				if tempToken != "" {
+					tokens = append(tokens, tempToken)
+					// Reset the current token
+					tempToken = ""
 				}
-				word = ""
 
+				// Check if the delimiter should be included
 				if includeDelimiter {
-					words = append(words, tempDelimiter)
-				}
-				tempDelimiter = ""
-
-				if IsComplete(delimiters, string(char)) >= 1 {
-					tempDelimiter = string(char)
-				} else {
-					word = string(char)
+					tokens = append(tokens, delimiter)
 				}
 
-			} else {
-				word += string(char)
+				// Skip the delimiter characters
+				i += delimiterSize - 1
+				isDelimiter = true
+				break
 			}
+		}
+
+		// Did not find a delimiter, add the character to the token
+		if !isDelimiter {
+			tempToken += char
 		}
 
 	}
 
-	// Add the last word to the words array
-	if word != "" {
-		words = append(words, word)
+	// Dump the last token if it is not empty
+	if tempToken != "" {
+		tokens = append(tokens, tempToken)
 	}
 
-	// Remove certain words
+	// Remove certain words for strings
 	result := []string{}
 	removeEmpty := true
-	for _, word := range words {
+	for _, word := range tokens {
 
 		if word == "\"" {
 			removeEmpty = !removeEmpty
@@ -130,22 +84,11 @@ func InlineParse(txt string, delimiters []string, includeDelimiter bool) []strin
 	return result
 }
 
-func IsInArray(arr []string, str string) bool {
-	for _, a := range arr {
-		if a == str {
-			return true
-		}
-	}
-
-	return false
-}
-
-func IsComplete(arr []string, str string) int {
-	count := 0
-	for _, a := range arr {
-		if strings.HasPrefix(a, str) {
-			count++
-		}
-	}
-	return count
+/**
+ * Replace the special characters in a string. This is used to replace escaped characters like \n and \t.
+ * @param txt : string - The text to parse.
+ * @return string - The formatted text.
+ */
+func HandleEscapeCharacters(txt string) string {
+	return strings.Replace(txt, "\\\"", "\"", -1)
 }

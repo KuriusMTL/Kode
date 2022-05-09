@@ -35,3 +35,76 @@ func SkipWhileTokenNext(queue *Queue, value string) {
 		nextToken, _ = (*queue).Pop()
 	}
 }
+
+// ? Note by Eduard: I don't know if this is the best way to do this, but for now its works.
+/**
+ * Reassemble the tokens in a Queue into a string.
+ * @param queue : Queue - The queue to reassemble.
+ * @return string - The reassembled string.
+ */
+func InlineQueueToString(queue *Queue) string {
+	value := ""
+	isInString := false
+	for !(*queue).IsEmpty() {
+		tokenValue, _ := (*queue).Pop()
+
+		// Enter or exist a string
+		if tokenValue.(string) == "\"" {
+			isInString = !isInString
+		}
+
+		// Exit if a comment is found.
+		if tokenValue.(string) == "#" {
+			break
+		}
+
+		// If not in a string, add an additional space for proper parsing afterwards
+		if !isInString {
+
+			// ! No longer needed
+			// peekedValue, _ := (*queue).Peek()
+
+			// if tokenValue.(string) == "=" && peekedValue.(string) == "=" {
+			// 	value += tokenValue.(string)
+			// } else {
+			// 	value += tokenValue.(string) + " "
+			// }
+
+			value += tokenValue.(string) + " "
+
+		} else {
+			value += tokenValue.(string)
+		}
+	}
+	return value
+}
+
+/**
+ * Copy a variable map.
+ * @param map : map[string]*Variable - The map to copy.
+ * @return map[string]*Variable - The copied map.
+ */
+func CopyVariableMap(originalMap map[string]*Variable) map[string]*Variable {
+	// Create new map
+	newMap := make(map[string]*Variable)
+	// Copy values from the original map
+	for key, value := range originalMap {
+		newMap[key] = value
+	}
+	return newMap
+}
+
+func CopyFunction(originalFunction *Function) *Function {
+	// Create new function
+
+	newVars := CopyVariableMap((*originalFunction).Variables)
+	newFunction := &Function{
+		Code:       (*originalFunction).Code,
+		Return:     (*originalFunction).Return,
+		Arguments:  (*originalFunction).Arguments,
+		Variables:  newVars,
+		IsInstance: (*originalFunction).IsInstance,
+		Parent:     (*originalFunction).Parent,
+	}
+	return newFunction
+}

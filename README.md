@@ -2,7 +2,7 @@
 
 ## Description
 ---
-Kode is a dynamic programming language. *More to come...*
+Kode is a dynamic and lightweight programming language.
 
 ## Installation
 ---
