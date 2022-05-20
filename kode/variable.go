@@ -81,11 +81,19 @@ func IsReservedWord(name string) bool {
 		return true
 	case "return":
 		return true
+	case "for":
+		return true
+	case "break":
+		return true
 	case "self":
+		return true
+	case "super":
 		return true
 	case "new":
 		return true
 	case "print":
+		return true
+	case "len":
 		return true
 	case "toString":
 		return true
@@ -96,6 +104,16 @@ func IsReservedWord(name string) bool {
 	case "yell":
 		return true
 	case "whisper":
+		return true
+	case "typeOf":
+		return true
+	case "random":
+		return true
+	case "truncate":
+		return true
+	case "append":
+		return true
+	case "round":
 		return true
 	default:
 		return false
@@ -121,6 +139,8 @@ func EvaluateType(value interface{}) string {
 		return "func"
 	case int:
 		return "illegal_int"
+	case []Variable:
+		return EvaluateArrayType(value.([]Variable)) // i.e. val[], int[], float[], string[], bool[], func[]
 	default:
 		return "null"
 	}

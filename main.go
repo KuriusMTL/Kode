@@ -21,7 +21,7 @@ func main() {
 	if *showVersion {
 		fmt.Println("Kode version: " + VERSION)
 		fmt.Println("Created by Eduard A. and Frédéric J.")
-		fmt.Println("Make sure to check out the GitHub page: https://github.com/PersoSirEduard/Kode")
+		fmt.Println("Make sure to check out the GitHub repository: https://github.com/PersoSirEduard/Kode")
 		return
 	}
 

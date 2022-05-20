@@ -3,8 +3,11 @@ package kode
 import (
 	"errors"
 	"fmt"
+	"math"
+	"math/rand"
 	"strconv"
 	"strings"
+	"time"
 )
 
 /**
@@ -25,6 +28,18 @@ func ExistsIncluded(name string) bool {
 	case "yell":
 		return true
 	case "whisper":
+		return true
+	case "typeOf":
+		return true
+	case "len":
+		return true
+	case "random":
+		return true
+	case "append":
+		return true
+	case "truncate":
+		return true
+	case "round":
 		return true
 	default:
 		return false
@@ -52,6 +67,18 @@ func RunIncluded(name string, args []*Variable) (*Variable, error) {
 		return Yell(args)
 	case "whisper":
 		return Whisper(args)
+	case "typeOf":
+		return TypeOf(args)
+	case "len":
+		return Len(args)
+	case "random":
+		return Random(args)
+	case "append":
+		return Append(args)
+	case "truncate":
+		return Truncate(args)
+	case "round":
+		return Round(args)
 	default:
 		return NullVariable(), nil
 	}
@@ -130,7 +157,7 @@ func ToString(args []*Variable) (*Variable, error) {
 			return NullVariable(), nil
 		}
 	} else {
-		return NullVariable(), errors.New("Too many arguments")
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"toString\"")
 	}
 }
 
@@ -142,14 +169,14 @@ func ToString(args []*Variable) (*Variable, error) {
 **/
 func ToInt(args []*Variable) (*Variable, error) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Too many arguments")
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"toInt\"")
 	}
 
 	switch args[0].Type {
 	case "string":
 		i, err := strconv.ParseInt(args[0].Value.(string), 10, 64)
 		if err != nil {
-			return NullVariable(), errors.New("String is not a number")
+			return NullVariable(), errors.New("Error: String is not a number or is too large to be converted to an int for \"toInt\"")
 		}
 		variable := CreateVariable(i)
 		return &variable, nil
@@ -161,7 +188,7 @@ func ToInt(args []*Variable) (*Variable, error) {
 		variable := CreateVariable(i)
 		return &variable, nil
 	default:
-		return NullVariable(), errors.New("Argument must be a string or a number")
+		return NullVariable(), errors.New("Error: Argument must be a string or a number for \"toInt\"")
 	}
 
 }
@@ -174,14 +201,14 @@ func ToInt(args []*Variable) (*Variable, error) {
 **/
 func ToFloat(args []*Variable) (*Variable, error) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Too many arguments")
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"toFloat\"")
 	}
 
 	switch args[0].Type {
 	case "string":
 		f, err := strconv.ParseFloat(args[0].Value.(string), 64)
 		if err != nil {
-			return NullVariable(), errors.New("String is not a number")
+			return NullVariable(), errors.New("Error: String is not a number or is too large to be converted to a float for \"toFloat\"")
 		}
 		variable := CreateVariable(f)
 		return &variable, nil
@@ -193,7 +220,7 @@ func ToFloat(args []*Variable) (*Variable, error) {
 		variable := CreateVariable(args[0].Value.(float64))
 		return &variable, nil
 	default:
-		return NullVariable(), errors.New("Argument must be a string or a number")
+		return NullVariable(), errors.New("Error: Argument must be a string or a number for \"toFloat\"")
 	}
 }
 
@@ -206,11 +233,11 @@ func ToFloat(args []*Variable) (*Variable, error) {
 func Whisper(args []*Variable) (*Variable, error) {
 
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Too many arguments")
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"whisper\"")
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Argument must be a string")
+		return NullVariable(), errors.New("Error: Argument must be a string for \"whisper\"")
 	}
 
 	// Lowercase the string
@@ -228,15 +255,135 @@ func Whisper(args []*Variable) (*Variable, error) {
 func Yell(args []*Variable) (*Variable, error) {
 
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Too many arguments")
+		return NullVariable(), errors.New("Error: Expected 1 argument ofr \"yell\"")
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Argument must be a string")
+		return NullVariable(), errors.New("Error: Argument must be a string for \"yell\"")
 	}
 
 	// Uppercase the string
 	s := strings.ToUpper(args[0].Value.(string))
 	variable := CreateVariable(s)
+	return &variable, nil
+}
+
+/**
+ * Get the type of a variable.
+ * @param args :[]*Variable - The arguments to the function.
+ * @return *Variable - The result of the function.
+ * @return error - The error if one occurs.
+ */
+func TypeOf(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"typeof\"")
+	}
+
+	variable := CreateVariable(args[0].Type)
+	return &variable, nil
+}
+
+func Len(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 argument for \"len\"")
+	}
+
+	if !isArrayType(args[0].Type) {
+		return NullVariable(), errors.New("Error: Expected an array as the argument for \"len\"")
+	}
+
+	variable := CreateVariable(int64(len(args[0].Value.([]Variable))))
+	return &variable, nil
+}
+
+func Random(args []*Variable) (*Variable, error) {
+	if len(args) > 0 {
+		return NullVariable(), errors.New("Error: Expected 0 argument for \"random\"")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	variable := CreateVariable(rand.Float64())
+	return &variable, nil
+}
+
+func Append(args []*Variable) (*Variable, error) {
+
+	if len(args) != 2 {
+		return NullVariable(), errors.New("Error: Expected 2 arguments (array, val) for \"append\"")
+	}
+
+	if !isArrayType(args[0].Type) {
+		return NullVariable(), errors.New("Error: Expected an array as the first argument for \"append\"")
+	}
+
+	// Get allowed types
+	allowedType := strings.ReplaceAll(args[0].Type, "[]", "")
+
+	if allowedType != "val" {
+		if args[1].Type != allowedType {
+			return NullVariable(), errors.New("Error: Expected a " + allowedType + " as the second argument for \"append\"")
+		}
+
+		// Append the value
+		array := append(args[0].Value.([]Variable), *(args[1]))
+
+		// Return the array
+		variable := CreateVariable(array)
+		return &variable, nil
+	} else {
+		// Append the value
+		array := append(args[0].Value.([]Variable), *(args[1]))
+
+		// Return the array
+		variable := CreateVariable(array)
+		return &variable, nil
+	}
+
+}
+
+func Truncate(args []*Variable) (*Variable, error) {
+	if len(args) != 2 {
+		return NullVariable(), errors.New("Error: Expected 2 arguments (array, int) for \"truncate\"")
+	}
+
+	if !isArrayType(args[0].Type) {
+		return NullVariable(), errors.New("Error: Expected an array as the first argument for \"truncate\"")
+	}
+
+	if args[1].Type != "int" {
+		return NullVariable(), errors.New("Error: Expected second argument must be an int for \"truncate\"")
+	}
+
+	// Get size and index
+	array := args[0]
+	size, err := GetArraySize(array)
+	if err != nil {
+		return NullVariable(), err
+	}
+
+	index := args[1].Value.(int64) % size
+	if index < 0 { // Handle negative indexes
+		index += size
+	}
+
+	// Truncate the array
+	// Remove the element
+	newArray := append(array.Value.([]Variable)[:index], array.Value.([]Variable)[index+1:]...)
+	variable := CreateVariable(newArray)
+	return &variable, nil
+}
+
+func Round(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 argument (float) for \"round\"")
+	}
+
+	if args[0].Type != "float" {
+		return NullVariable(), errors.New("Error: Argument must be a float for \"round\"")
+	}
+
+	// Round the float
+	f := args[0].Value.(float64)
+	variable := CreateVariable(math.Round(f))
 	return &variable, nil
 }

@@ -125,6 +125,8 @@ func (val1 *Variable) Add(val2 *Variable) (Variable, error) {
 
 		if (*val2).Type == "string" {
 			return Variable{Type: "string", Value: (*val1).Value.(string) + (*val2).Value.(string)}, nil
+		} else if isArrayType((*val2).Type) {
+			return CreateVariable(append([]Variable{(*val1)}, val2.Value.([]Variable)...)), nil
 		} else {
 			break
 		}
@@ -138,6 +140,12 @@ func (val1 *Variable) Add(val2 *Variable) (Variable, error) {
 		}
 
 	default:
+
+		// Array type
+		if isArrayType((*val1).Type) && isArrayType((*val2).Type) && (*val1).Type == (*val2).Type {
+			return CreateVariable(append(val1.Value.([]Variable), val2.Value.([]Variable)...)), nil
+		}
+
 		break
 	}
 
@@ -414,6 +422,12 @@ func (val1 *Variable) Equal(val2 *Variable) (Variable, error) {
 	case "bool":
 		if (*val2).Type == "bool" {
 			return Variable{Type: "bool", Value: (*val1).Value.(bool) == (*val2).Value.(bool)}, nil
+		} else {
+			break
+		}
+	case "null":
+		if (*val2).Type == "null" {
+			return Variable{Type: "bool", Value: true}, nil
 		} else {
 			break
 		}

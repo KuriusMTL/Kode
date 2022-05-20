@@ -3,6 +3,7 @@ package kode
 import (
 	"errors"
 	"strconv"
+	"strings"
 )
 
 // ! Argument : A function argument.
@@ -55,6 +56,7 @@ func CreateFunction(argumentsTemplate []Argument, variables map[string](*Variabl
 
 	// Update the variables with the arguments
 	for _, arg := range argumentsTemplate {
+
 		vars[arg.Name] = &Variable{
 			Value: GetDefaultValue((*arg.Variable).Type),
 			Type:  (*arg.Variable).Type,
@@ -123,7 +125,7 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 
 	// Evaluate the function
 	paranthesis, _ := (*queue).Pop()
-	if paranthesis.(string) != "(" {
+	if paranthesis == nil || paranthesis.(string) != "(" {
 		return nil, errors.New("Error: Missing paranthesis for the function")
 	}
 
@@ -131,17 +133,27 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 	closedFunction := false
 	tempVariable := ""
 	isInString := false
+	nestedParenthesis := 0
 	// Get the function parameters
 	for !queue.IsEmpty() {
 
 		// Get the next token
 		nextToken, _ := queue.Pop()
 
+		//println(nextToken.(string))
+
 		// Check if the token is the end of the function parameters
-		if nextToken.(string) == ")" {
-			closedFunction = true
-			break
-		} else if nextToken.(string) == "," {
+		if (nextToken.(string) == "(" || nextToken.(string) == "[") && !isInString {
+			nestedParenthesis += 1
+		} else if (nextToken.(string) == ")" || nextToken.(string) == "]") && !isInString {
+			if nestedParenthesis == 0 && nextToken.(string) == ")" {
+				closedFunction = true
+				break
+			}
+			nestedParenthesis -= 1
+		} else if nextToken.(string) == "," && nestedParenthesis == 0 && !isInString {
+
+			//println(tempVariable)
 
 			// Evaluate the parameter
 			parameter, err := EvaluateExpression(scope, tempVariable)
@@ -153,19 +165,18 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 
 			tempVariable = ""
 			continue
+		}
+
+		// Check if the token is a string
+		if nextToken.(string) == "\"" {
+			isInString = !isInString
+		}
+
+		// If the token is not a string, and the string is not closed, add the token to the temp variable
+		if isInString {
+			tempVariable += nextToken.(string)
 		} else {
-
-			// Check if the token is a string
-			if nextToken.(string) == "\"" {
-				isInString = !isInString
-			}
-
-			// If the token is not a string, and the string is not closed, add the token to the temp variable
-			if isInString {
-				tempVariable += nextToken.(string)
-			} else {
-				tempVariable += nextToken.(string) + " "
-			}
+			tempVariable += nextToken.(string) + " "
 		}
 	}
 
@@ -175,6 +186,7 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 
 	// Evaluate the last parameter
 	if tempVariable != "" {
+		//println(tempVariable)
 		parameter, err := EvaluateExpression(scope, tempVariable)
 		if err != nil {
 			return nil, err
@@ -220,7 +232,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 		// Get the command tokens of the line.
 		// Add the tokens to the queue.
 		tokens := Queue{}
-		tokensArr := InlineParse(line, []string{" ", "\t", "\r", "!=", "==", ">=", "<=", "=", ":=", "#", "\"", "\\\"", ",", "(", ")", "\""}, true)
+		tokensArr := InlineParse(line, []string{" ", "\t", "\r", "[", "]", "!=", "==", ">=", "<=", "=", ":=", "#", "\"", "\\\"", ",", ".", "(", ")", "\""}, true)
 		for _, token := range tokensArr {
 			tokens.Push(token)
 		}
@@ -246,6 +258,15 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 			// The variable is created in the current scope of the function.
 			// "val" <name> = <value> where the type is inferred from the value.
 			case "val", "int", "float", "string", "bool":
+
+				// Get the dimensions of the variable.
+				// The dimensions are optional.
+				dimension, err := ExtractArrayDimensionFromDecleration(&tokens)
+				if err != nil {
+					return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+				}
+
+				command = command.(string) + strings.Repeat("[]", dimension)
 
 				// Get the provided variable name
 				name, nameProvided := tokens.Pop()
@@ -296,8 +317,9 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Create the variable in the current scope.
 				(*scope).Variables[name.(string)] = &evaluatedValue
-				println("Created variable " + name.(string) + "(" + evaluatedValue.Type + ").")
-
+				if (*scope).GetVariable("_DEBUG").Type == "bool" && (*scope).GetVariable("_DEBUG").Value.(bool) {
+					println("Created variable " + name.(string) + "(" + evaluatedValue.Type + ").")
+				}
 				break
 
 			// ? If condition
@@ -480,7 +502,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				returnType, returnTypeProvided := tokens.Pop()
 				if !returnTypeProvided {
 					returnType = "null"
-				} else if returnType.(string) != "val" && returnType.(string) != "int" && returnType.(string) != "float" && returnType.(string) != "bool" && returnType.(string) != "string" && returnType.(string) != "func" {
+				} else if returnType.(string) != "val" && returnType.(string) != "int" && returnType.(string) != "float" && returnType.(string) != "bool" && returnType.(string) != "string" && returnType.(string) != "func" && isArrayType(returnType.(string)) == false {
 					return NullVariable(), false, errors.New("Error: Invalid return type \"" + returnType.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
@@ -541,11 +563,96 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					return NullVariable(), true, errors.New("Error: Invalid return type \"" + returnValue.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
+			case "break":
+				return NullVariable(), false, nil
+
+			case "for":
+
+				loopBlock, nextLine, err := ParseLoopBlock(&tokens, currentLine, lines)
+
+				if err != nil {
+					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+				}
+
+				currentLine = nextLine
+
+				evaluatedCondition, err := EvaluateExpression(scope, loopBlock.Condition)
+				if err != nil {
+					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+				}
+
+				if evaluatedCondition.Type != "bool" {
+					return NullVariable(), false, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+				}
+
+				for evaluatedCondition.Value.(bool) {
+
+					forLoop := CreateFunction([]Argument{}, (*scope).Variables, "val", scope, loopBlock.Code)
+					returnValue, toReturn, err := forLoop.Run([]*Variable{}, map[string]*Variable{})
+
+					// If the code returns a value, return it
+					if err != nil {
+						return NullVariable(), false, err
+					}
+
+					if toReturn {
+						return returnValue, true, nil
+					}
+
+					// Evaluate the condition
+					evaluatedCondition, err = EvaluateExpression(scope, loopBlock.Condition)
+					if err != nil {
+						return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+					}
+
+					if evaluatedCondition.Type != "bool" {
+						return NullVariable(), false, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+					}
+
+					// Exit the loop if the condition is false
+					if !evaluatedCondition.Value.(bool) {
+						break
+					}
+
+				}
+
 			default:
 
 				// Is the command a variable (check inside the scope)?
 				// If so, update the variable value.
 				if (*scope).VariableExists(command.(string)) {
+
+					variable := (*scope).GetVariable(command.(string))
+
+					// Check for array index
+					peeked, validPeek := tokens.Peek()
+					for validPeek && peeked.(string) == "[" {
+
+						// Check if array
+						if !isArrayType((*variable).Type) {
+							return NullVariable(), false, errors.New("Error: '" + peeked.(string) + "' cannot access that index because it might not be an array on line " + strconv.Itoa(currentLine+1) + ".")
+						}
+
+						tokens.Pop()
+						indexArray, err := (*scope).ExtractArrayValues(&tokens)
+						if err != nil {
+							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+						}
+						if len(indexArray) != 1 || indexArray[0].Type != "int" {
+							return NullVariable(), false, errors.New("Error: Invalid array index on line " + strconv.Itoa(currentLine+1) + ".")
+						}
+						size := int64(len((*variable).Value.([]Variable)))
+						if size == 0 {
+							return NullVariable(), false, errors.New("Error: Array is empty on line " + strconv.Itoa(currentLine+1) + ".")
+						}
+						index := indexArray[0].Value.(int64) % size
+						if index < 0 { // Handle negative indexes
+							index += size
+						}
+						variable = &(*variable).Value.([]Variable)[index]
+						peeked, validPeek = tokens.Peek()
+
+					}
 
 					// Get the provided definition token
 					// i.e. "=" or ":="
@@ -554,50 +661,23 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					// Check if the variable has a valid assignment
 					if !assign || (equal.(string) != "=" && equal.(string) != ":=") {
 
-						if (*scope).GetVariable(command.(string)).Type == "func" {
+						// Simply execute the command and return NO value
 
-							// Parse the function if possible
-							args, err := (*scope).ExtractFunctionArgs(&tokens)
-							if err != nil {
-								return NullVariable(), false, err
-							}
+						output := command.(string) + InlineQueueToString(&tokens)
+						_, err := EvaluateExpression(scope, output)
 
-							// Call the function without returning the value
-							function := (*scope).GetVariable(command.(string)).Value.(Function)
-							copyFunc := CopyFunction(&function)
-							newVars := CopyVariableMap((*copyFunc).Parent.Variables)
-							(*copyFunc).Variables = newVars
-							_, _, err = (*copyFunc).Run(args, map[string]*Variable{})
-
-							if err != nil {
-								return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
-							}
-
-						} else {
-
-							output := InlineQueueToString(&tokens)
-							_, err := EvaluateExpression(scope, output)
-
-							if err != nil {
-								return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
-							}
-
+						if err != nil {
+							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 					} else {
 
 						// Get the rest of the line tokens and join them to feed the variable value.
-						value := ""
-						for !tokens.IsEmpty() {
-							tokenValue, _ := tokens.Pop()
 
-							// Exit if a comment is found.
-							if tokenValue.(string) == "#" {
-								break
-							}
+						// Remove the equal sign
+						tokens.Pop()
 
-							value += tokenValue.(string)
-						}
+						value := InlineQueueToString(&tokens)
 
 						// Make sure the variable value is valid (not empty)
 						if value == "" {
@@ -612,13 +692,16 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						}
 
 						// Check safe assignment
-						if ((*scope).Variables[command.(string)].Type != evaluatedValue.Type) && equal.(string) != ":=" {
+						if ((*variable).Type != evaluatedValue.Type) && equal.(string) != ":=" {
 							return NullVariable(), false, errors.New("Error: Variable type mismatch on line " + strconv.Itoa(currentLine+1) + ". Expected type " + (*scope).Variables[command.(string)].Type + " but got type " + evaluatedValue.Type + ".")
 						}
 
 						// Update the variable in the current scope.
-						*((*scope).Variables[command.(string)]) = evaluatedValue
-						println("Updated variable " + command.(string) + "(" + evaluatedValue.Type + ").")
+						*variable = evaluatedValue
+						// *((*scope).Variables[command.(string)]) = evaluatedValue
+						if (*scope).GetVariable("_DEBUG").Type == "bool" && (*scope).GetVariable("_DEBUG").Value.(bool) {
+							println("Updated variable " + command.(string) + "(" + evaluatedValue.Type + ").")
+						}
 
 					}
 
