@@ -261,7 +261,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Get the dimensions of the variable.
 				// The dimensions are optional.
-				dimension, err := ExtractArrayDimensionFromDecleration(&tokens)
+				dimension, err := ExtractArrayDimensionFromDeclaration(&tokens)
 				if err != nil {
 					return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
 				}
@@ -457,6 +457,15 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						if token.(string) != "val" && token.(string) != "int" && token.(string) != "float" && token.(string) != "bool" && token.(string) != "string" {
 							return NullVariable(), false, errors.New("Error: Invalid parameter type \"" + token.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 						}
+
+						// Get the dimensions of the variable.
+						// The dimensions are optional.
+						dimension, err := ExtractArrayDimensionFromDeclaration(&tokens)
+						if err != nil {
+							return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+						}
+
+						token = token.(string) + strings.Repeat("[]", dimension)
 
 						// Get the parameter name
 						parameterName, parameterNameProvided := tokens.Pop()

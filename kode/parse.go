@@ -76,7 +76,7 @@ func InlineParse(txt string, delimiters []string, includeDelimiter bool) []strin
 			removeEmpty = !removeEmpty
 		}
 
-		if !removeEmpty || word != " " {
+		if !removeEmpty || (word != " " && word != "\t") {
 			result = append(result, word)
 		}
 	}

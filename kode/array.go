@@ -106,7 +106,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue) ([]Variable, error) {
  * @return int - The dimension.
  * @return error - The error if one occurs.
  */
-func ExtractArrayDimensionFromDecleration(tokens *Queue) (int, error) {
+func ExtractArrayDimensionFromDeclaration(tokens *Queue) (int, error) {
 	// Check for array dimension
 	// Check for square brackets
 	dimension := 0.0

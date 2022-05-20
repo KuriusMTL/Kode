@@ -288,12 +288,17 @@ func Len(args []*Variable) (*Variable, error) {
 		return NullVariable(), errors.New("Error: Expected 1 argument for \"len\"")
 	}
 
-	if !isArrayType(args[0].Type) {
-		return NullVariable(), errors.New("Error: Expected an array as the argument for \"len\"")
+	if !isArrayType(args[0].Type) && args[0].Type != "string" {
+		return NullVariable(), errors.New("Error: Expected an array or string as the argument for \"len\"")
 	}
 
-	variable := CreateVariable(int64(len(args[0].Value.([]Variable))))
-	return &variable, nil
+	if args[0].Type == "string" {
+		variable := CreateVariable(int64(len(args[0].Value.(string))))
+		return &variable, nil
+	} else {
+		variable := CreateVariable(int64(len(args[0].Value.([]Variable))))
+		return &variable, nil
+	}
 }
 
 func Random(args []*Variable) (*Variable, error) {

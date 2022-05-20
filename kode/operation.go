@@ -36,16 +36,18 @@ func CheckForNegation(tokens []string) []string {
  */
 func OperatorPrecedence(op string) int {
 	switch op {
-	case "is", "==", "!=", ">", "<", ">=", "<=", "or", "and", "not":
+	case "or", "and":
 		return 1
-	case "+", "-":
+	case "is", "==", "!=", ">", "<", ">=", "<=", "not":
 		return 2
-	case "*", "/":
+	case "+", "-":
 		return 3
-	case "^", "%":
+	case "*", "/":
 		return 4
-	case "¬":
+	case "^", "%":
 		return 5
+	case "¬":
+		return 6
 	default:
 		return 0
 	}
