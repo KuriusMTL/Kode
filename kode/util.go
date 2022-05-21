@@ -46,7 +46,7 @@ func InlineQueueToString(queue *Queue) string {
 	value := ""
 	isInString := false
 	for !(*queue).IsEmpty() {
-		tokenValue, _ := (*queue).Pop()
+		tokenValue, _ := (*queue).Peek()
 
 		// Enter or exist a string
 		if tokenValue.(string) == "\"" {
@@ -57,6 +57,9 @@ func InlineQueueToString(queue *Queue) string {
 		if tokenValue.(string) == "#" {
 			break
 		}
+
+		// In order to keep the "#" in the queue if it exists, we only pop the next token now.
+		(*queue).Pop()
 
 		// If not in a string, add an additional space for proper parsing afterwards
 		if !isInString {
