@@ -27,7 +27,6 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 	queue := Queue{}
 	for _, token := range tokens {
 		queue.Push(token)
-		// println("Token add: " + token)
 	}
 
 	values := Stack{}    // Store values to evaluate
@@ -145,7 +144,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					}
 				}
 				strNumber += nextToken.(string)
-				// nextToken, hasNextToken := queue.Peek()
+				nextToken, hasNextToken = queue.Peek()
 
 				// if !hasNextToken {
 				// 	break
