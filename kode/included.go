@@ -373,7 +373,26 @@ func Truncate(args []*Variable) (*Variable, error) {
 
 	// Truncate the array
 	// Remove the element
-	newArray := append(array.Value.([]Variable)[:index], array.Value.([]Variable)[index+1:]...)
+
+	// Copy the array
+	newArray := make([]Variable, size-1)
+	i := int64(0)
+	removed := false
+	for i < int64(len(newArray)) {
+
+		if i != index || removed {
+			if removed {
+				newArray[i] = array.Value.([]Variable)[i+1]
+			} else {
+				newArray[i] = array.Value.([]Variable)[i]
+			}
+			i++
+		} else {
+			removed = true
+		}
+
+	}
+
 	variable := CreateVariable(newArray)
 	return &variable, nil
 }
