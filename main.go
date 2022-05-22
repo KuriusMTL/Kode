@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 
 	"github.com/PersoSirEduard/kode/kode"
 )
@@ -16,7 +19,37 @@ func main() {
 
 	path := flag.String("run", "main.kd", "Path to the Kode file.")
 	showVersion := flag.Bool("version", false, "Show the current version of Kode.")
+	StdIn := flag.Bool("runStdIn", false, "Read from stdin.")
 	flag.Parse()
+
+	if *StdIn {
+		in := bufio.NewScanner(os.Stdin)
+
+		code := ""
+
+		for in.Scan() {
+
+			bytes := in.Bytes()
+			txt := string(bytes)
+
+			if strings.ReplaceAll(txt, " ", "") == "exit" {
+				break
+			}
+
+			if txt != "" {
+				code += txt + "\n"
+			}
+
+		}
+
+		err := kode.Run(code)
+
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+
+		os.Exit(1)
+	}
 
 	if *showVersion {
 		fmt.Println("Kode version: " + VERSION)

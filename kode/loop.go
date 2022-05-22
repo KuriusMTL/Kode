@@ -21,7 +21,7 @@ func ParseLoopBlock(tokens *Queue, currentLine int, lines []string) (LoopBlock, 
 	for currentLine < len(lines) {
 
 		// Parse the current line
-		parsed := InlineParse(lines[currentLine], []string{" "}, true)
+		parsed := InlineParse(lines[currentLine], []string{" ", "\t"}, true)
 
 		if len(parsed) > 0 && parsed[0] == "for" {
 

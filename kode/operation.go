@@ -265,7 +265,7 @@ func (val1 *Variable) Div(val2 *Variable) (Variable, error) {
 				return Variable{}, errors.New("Error: Division by zero")
 			}
 
-			return Variable{Type: "float", Value: (*val1).Value.(float64) / float64((*val2).Value.(int))}, nil
+			return Variable{Type: "float", Value: (*val1).Value.(float64) / float64((*val2).Value.(int64))}, nil
 		} else if (*val2).Type == "float" {
 
 			if (*val2).Value.(float64) == 0 {

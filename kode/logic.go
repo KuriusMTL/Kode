@@ -241,7 +241,8 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				// Get the function
 				function := (*scope).GetVariable(nextToken.(string)).Value.(Function)
 				copyFunc := CopyFunction(&function)
-				(*copyFunc).Variables = map[string]*Variable{}
+
+				(*copyFunc).Variables = map[string]*Variable{"_DEBUG": (*scope).GetVariable("_DEBUG"), "_MAX_RECURSION": (*scope).GetVariable("_MAX_RECURSION")}
 				(*copyFunc).Parent = copyFunc
 				instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
 				if err != nil {

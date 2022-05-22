@@ -43,7 +43,7 @@ func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]Con
 	for currentLine < len(lines) {
 
 		// Parse the current line
-		parsed := InlineParse(lines[currentLine], []string{" "}, true)
+		parsed := InlineParse(lines[currentLine], []string{" ", "\t"}, true)
 
 		// Add nested if block
 		// A counter is used to determine if the block is nested

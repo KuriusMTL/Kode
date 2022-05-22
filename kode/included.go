@@ -41,6 +41,8 @@ func ExistsIncluded(name string) bool {
 		return true
 	case "round":
 		return true
+	case "sqrt":
+		return true
 	default:
 		return false
 	}
@@ -79,6 +81,8 @@ func RunIncluded(name string, args []*Variable) (*Variable, error) {
 		return Truncate(args)
 	case "round":
 		return Round(args)
+	case "sqrt":
+		return Sqrt(args)
 	default:
 		return NullVariable(), nil
 	}
@@ -410,4 +414,35 @@ func Round(args []*Variable) (*Variable, error) {
 	f := args[0].Value.(float64)
 	variable := CreateVariable(math.Round(f))
 	return &variable, nil
+}
+
+func Sqrt(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 argument (float) for \"sqrt\"")
+	}
+
+	if args[0].Type != "float" && args[0].Type != "int" {
+		return NullVariable(), errors.New("Error: Argument must be a numeric type for \"sqrt\"")
+	}
+
+	// Square root the float
+	if args[0].Type == "float" {
+		f := args[0].Value.(float64)
+
+		if f < 0 {
+			return NullVariable(), errors.New("Error: Argument must be a positive float for \"sqrt\"")
+		}
+
+		variable := CreateVariable(math.Sqrt(f))
+		return &variable, nil
+	} else {
+		i := args[0].Value.(int64)
+
+		if i < 0 {
+			return NullVariable(), errors.New("Error: Argument must be a positive integer for \"sqrt\"")
+		}
+
+		variable := CreateVariable(math.Sqrt(float64(i)))
+		return &variable, nil
+	}
 }

@@ -115,6 +115,8 @@ func IsReservedWord(name string) bool {
 		return true
 	case "round":
 		return true
+	case "sqrt":
+		return true
 	default:
 		return false
 	}
