@@ -509,11 +509,20 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Get return type
 				returnType, returnTypeProvided := tokens.Pop()
+
 				if !returnTypeProvided {
 					returnType = "null"
-				} else if returnType.(string) != "val" && returnType.(string) != "int" && returnType.(string) != "float" && returnType.(string) != "bool" && returnType.(string) != "string" && returnType.(string) != "func" && isArrayType(returnType.(string)) == false {
+				} else if returnType.(string) != "val" && returnType.(string) != "int" && returnType.(string) != "float" && returnType.(string) != "bool" && returnType.(string) != "string" && returnType.(string) != "func" {
 					return NullVariable(), false, errors.New("Error: Invalid return type \"" + returnType.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
+
+				// If its an array, get the dimensions
+				dimensions, err := ExtractArrayDimensionFromDeclaration(&tokens)
+				if err != nil {
+					return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+				}
+				// Apply the dimensions to the return type
+				returnType = returnType.(string) + strings.Repeat("[]", dimensions)
 
 				// Get the block of code for the function
 				funcEnded := false
