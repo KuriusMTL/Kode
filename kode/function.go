@@ -312,7 +312,13 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				}
 
 				if command.(string) != "val" && evaluatedValue.Type != command.(string) {
-					return NullVariable(), false, errors.New("Error: Invalid variable type on line " + strconv.Itoa(currentLine+1) + ". The type of the variable must be " + command.(string) + ".")
+
+					// If the evaluated value is an empty array (e.g. []), then its evaluated type would be "val[]" and its length would be 0.
+					// Empty arrays are allowed to be assigned to any array type.
+					if !isArrayType(command.(string)) || evaluatedValue.Type != "val[]" || len(evaluatedValue.Value.([]Variable)) != 0 {
+						return NullVariable(), false, errors.New("Error: Invalid variable type on line " + strconv.Itoa(currentLine+1) + ". The type of the variable must be " + command.(string) + ".")
+					}
+
 				}
 
 				// Create the variable in the current scope.
