@@ -20,7 +20,7 @@ build.bat
 cd dist/
 ```
 5) (Optional) Add the executable `kode.exe` to the environment path as explained [here](https://www.architectryan.com/2018/03/17/add-to-the-path-on-windows-10/).
-6) Run applications in the CLI using `kode <path to the application>`.
+6) Run applications in the CLI using `kode -run <path to the application>`.
 
 ### macOS
 *Coming soon...*
