@@ -317,6 +317,9 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					// Empty arrays are allowed to be assigned to any array type.
 					if !isArrayType(command.(string)) || evaluatedValue.Type != "val[]" || len(evaluatedValue.Value.([]Variable)) != 0 {
 						return NullVariable(), false, errors.New("Error: Invalid variable type on line " + strconv.Itoa(currentLine+1) + ". The type of the variable must be " + command.(string) + ".")
+					} else {
+						// Properly assign the variable type for the empty array
+						evaluatedValue.Type = command.(string)
 					}
 
 				}
