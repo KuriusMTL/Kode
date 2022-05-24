@@ -1,28 +1,22 @@
 package kode
 
-func Run(code string) {
+import "strings"
+
+func Run(code string) error {
 
 	// Return if the code is empty.
 	if code == "" {
-		return
+		return nil
 	}
 
-	// Split the code into lines.
-	lines := lineParse(code)
+	// Create a new main scope.
+	_debug := CreateVariable(false)
+	_max_recursion := CreateVariable(5000)
+	scope := CreateFunction([]Argument{}, map[string]*Variable{"_DEBUG": &_debug, "_MAX_RECURSION": &_max_recursion}, "null", nil, strings.ReplaceAll(code, "\r", " "))
 
-	// Loop through the lines.
-	for _, line := range lines {
+	// Enter the main scope.
+	_, _, err := scope.Run([]*Variable{}, map[string]*Variable{})
 
-		result, err := EvaluateExpression(line)
-
-		// Check for any runtime errors.
-		if err != nil {
-			panic(err)
-		}
-
-		// Print the result.
-		println(result)
-
-	}
+	return err
 
 }

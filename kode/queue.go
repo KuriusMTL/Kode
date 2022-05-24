@@ -50,3 +50,10 @@ func (q *Queue) Peek() (interface{}, bool) {
 		return item, true
 	}
 }
+
+/**
+ * Remove all elements from the queue.
+ */
+func (q *Queue) Clear() {
+	*q = (*q)[:0]
+}
