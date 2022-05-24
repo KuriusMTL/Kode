@@ -110,7 +110,13 @@ func ExtractArrayDimensionFromDeclaration(tokens *Queue) (int, error) {
 	// Check for array dimension
 	// Check for square brackets
 	dimension := 0.0
-	squareBracket, _ := (*tokens).Peek()
+	squareBracket, err := (*tokens).Peek()
+
+	// No dimensions
+	if !err {
+		return 0, nil
+	}
+
 	if squareBracket.(string) == "[" {
 		dimension = 0.5
 		(*tokens).Pop()

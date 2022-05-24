@@ -118,7 +118,11 @@ func Print(args []*Variable) (*Variable, error) {
 			msg += "function"
 			break
 		default:
-			msg += "unknown"
+			if isArrayType(arg.Type) {
+				msg += "array"
+			} else {
+				msg += "unknown"
+			}
 			break
 		}
 		if i != 0 || i != len(args)-1 {
