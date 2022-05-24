@@ -720,7 +720,15 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 						// Check safe assignment
 						if ((*variable).Type != evaluatedValue.Type) && equal.(string) != ":=" {
-							return NullVariable(), false, errors.New("Error: Variable type mismatch on line " + strconv.Itoa(currentLine+1) + ". Expected type " + (*scope).Variables[command.(string)].Type + " but got type " + evaluatedValue.Type + ".")
+
+							// Accept to store type[] inside val[]
+							// Although, do not change the type of the variable
+							if !isArrayType((*variable).Type) && !isArrayType(evaluatedValue.Type) && strings.ReplaceAll((*variable).Type, "[]", "") != "val" {
+								return NullVariable(), false, errors.New("Error: Variable type mismatch on line " + strconv.Itoa(currentLine+1) + ". Expected type " + (*scope).Variables[command.(string)].Type + " but got type " + evaluatedValue.Type + ".")
+							} else {
+								evaluatedValue.Type = (*variable).Type
+							}
+
 						}
 
 						// Update the variable in the current scope.
