@@ -91,34 +91,8 @@ func IsReservedWord(name string) bool {
 		return true
 	case "new":
 		return true
-	case "print":
-		return true
-	case "len":
-		return true
-	case "toString":
-		return true
-	case "toInt":
-		return true
-	case "toFloat":
-		return true
-	case "yell":
-		return true
-	case "whisper":
-		return true
-	case "typeOf":
-		return true
-	case "random":
-		return true
-	case "truncate":
-		return true
-	case "append":
-		return true
-	case "round":
-		return true
-	case "sqrt":
-		return true
 	default:
-		return false
+		return ExistsBuiltIn(name)
 	}
 }
 

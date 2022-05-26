@@ -197,6 +197,8 @@ func (val1 *Variable) Mult(val2 *Variable) (Variable, error) {
 			return Variable{Type: "int", Value: (*val1).Value.(int64) * (*val2).Value.(int64)}, nil
 		} else if (*val2).Type == "float" {
 			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) * (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "string" {
+			return Variable{Type: "string", Value: strings.Repeat((*val1).Value.(string), int((*val2).Value.(int64)))}, nil
 		} else {
 			break
 		}

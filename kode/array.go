@@ -37,7 +37,7 @@ func EvaluateArrayType(array []Variable) string {
  * @return []Variable - Resulting array.
  * @return error - The error if one occurs.
  */
-func (scope *Function) ExtractArrayValues(queue *Queue) ([]Variable, error) {
+func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable, error) {
 
 	// Extract the array's value
 	nestedArray := 0
@@ -62,7 +62,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue) ([]Variable, error) {
 		if nextToken.(string) == "," && nestedArray == 0 && !isInString {
 			// Evaluate the parameter
 			//println(tmpVal)
-			parameter, err := EvaluateExpression(scope, tmpVal)
+			parameter, err := EvaluateExpression(scope, tmpVal, depth)
 			if err != nil {
 				return []Variable{}, err
 			}
@@ -86,7 +86,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue) ([]Variable, error) {
 	// Add last value
 	if tmpVal != "" {
 		//println(tmpVal)
-		parameter, err := EvaluateExpression(scope, tmpVal)
+		parameter, err := EvaluateExpression(scope, tmpVal, depth)
 		if err != nil {
 			return []Variable{}, err
 		}

@@ -27,24 +27,30 @@ type Argument struct {
 // ! Return : Expected return of the function.
 // -------------------------
 // ! Code : The code of the function.
+// -------------------------
+// ! Parent : The reference to the parent function.
+// -------------------------
+// ! Name : The name of the function.
 // ? TODO (Eduard): Precompile the functions instead of parsing them every time.
 type Function struct {
-	Arguments  []Argument
-	Variables  map[string](*Variable)
-	Return     string
-	Code       string
-	Parent     *Function
-	IsInstance bool
+	Arguments []Argument
+	Variables map[string](*Variable)
+	Return    string
+	Code      string
+	Parent    *Function
+	Name      string
 }
 
 /**
  * Create a new function with scope.
  * @param arguments : map[string]Variable - The arguments of the function.
  * @param variables : map[string](*Variable) - The variables of the function.
+ * @param returnType : string - The return type of the function.
+ * @param parent : *Function - The parent function.
  * @param code : string - The code of the function.
  * @return Function - The new function.
  */
-func CreateFunction(argumentsTemplate []Argument, variables map[string](*Variable), returnType string, parent *Function, code string) Function {
+func CreateFunction(name string, argumentsTemplate []Argument, variables map[string](*Variable), returnType string, parent *Function, code string) Function {
 
 	// Make sur to initialize the variables
 	if variables == nil {
@@ -64,12 +70,13 @@ func CreateFunction(argumentsTemplate []Argument, variables map[string](*Variabl
 	}
 
 	function := Function{
-		Arguments:  argumentsTemplate,
-		Variables:  vars,
-		Return:     returnType,
-		Code:       code,
-		Parent:     parent,
-		IsInstance: false,
+		Arguments: argumentsTemplate,
+		Variables: vars,
+		Return:    returnType,
+		Code:      code,
+		Parent:    parent,
+		Name:      name,
+		// IsInstance: false,
 	}
 
 	if parent == nil {
@@ -121,7 +128,7 @@ func (scope *Function) ArgumentsToVariables(args []*Variable) error {
 	return nil // No error
 }
 
-func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
+func (scope *Function) ExtractFunctionArgs(queue *Queue, depth int64) ([]*Variable, error) {
 
 	// Evaluate the function
 	paranthesis, _ := (*queue).Pop()
@@ -156,7 +163,7 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 			//println(tempVariable)
 
 			// Evaluate the parameter
-			parameter, err := EvaluateExpression(scope, tempVariable)
+			parameter, err := EvaluateExpression(scope, tempVariable, depth)
 			if err != nil {
 				return nil, err
 			}
@@ -187,7 +194,7 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 	// Evaluate the last parameter
 	if tempVariable != "" {
 		//println(tempVariable)
-		parameter, err := EvaluateExpression(scope, tempVariable)
+		parameter, err := EvaluateExpression(scope, tempVariable, depth)
 		if err != nil {
 			return nil, err
 		}
@@ -198,12 +205,31 @@ func (scope *Function) ExtractFunctionArgs(queue *Queue) ([]*Variable, error) {
 }
 
 /**
- * Run a function. The function will be executed in the scope of the function.
+ * Run a function. The function will be executed within its scope.
  * @param scope : Function - The scope of the referenced function.
  * @param args : interface{} - The arguments of the function.
+ * @param vars : map[string](*Variable) - The variables of the function.
+ * @param depth : int - The current depth of the function.
  * @return *Variable - Return of the function.
- */
-func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Variable, bool, error) {
+ * @return int - The return type of the function.
+		** 0: Immediate return
+		** 1: Return until root function
+		** 2: Return until for loop
+ * @return error - The error, if any.
+*/
+func (scope *Function) Run(args []*Variable, vars map[string](*Variable), depth int64) (*Variable, int, error) {
+
+	// Limit the depth of the function recursion
+	if (*scope).VariableExists("_MAX_RECURSION") && EvaluateType((*(*scope).GetVariable("_MAX_RECURSION")).Value) == "int" {
+		if depth > (*(*scope).GetVariable("_MAX_RECURSION")).Value.(int64) {
+			return nil, 0, errors.New("Maximum recursion depth reached.")
+		}
+	} else {
+		// Could not find the variable _MAX_RECURSION, default max depth to 5000
+		if depth > 5000 {
+			return nil, 0, errors.New("Maximum recursion depth reached.")
+		}
+	}
 
 	// Set the variables
 	// Loop through each argument and set the appropriate variable
@@ -214,7 +240,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 	// Set the argument variables
 	err := scope.ArgumentsToVariables(args)
 	if err != nil {
-		return nil, false, err
+		return nil, 0, err
 	}
 
 	// Split the code into lines.
@@ -263,7 +289,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				// The dimensions are optional.
 				dimension, err := ExtractArrayDimensionFromDeclaration(&tokens)
 				if err != nil {
-					return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+					return nil, 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
 				}
 
 				command = command.(string) + strings.Repeat("[]", dimension)
@@ -273,17 +299,17 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Check if the name for the variable was provided
 				if !nameProvided {
-					return NullVariable(), false, errors.New("Error: Missing variable name on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing variable name on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Check if the variable name is valid
 				if !HasValidVariableName(name.(string)) {
-					return nil, false, errors.New("Error: Invalid variable name on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
+					return nil, 0, errors.New("Error: Invalid variable name on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
 				}
 
 				// Check if the variable name is already in use in the current scope
 				if (*scope).VariableExists(name.(string)) {
-					return NullVariable(), false, errors.New("Error: Variable was already declared on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Variable was already declared on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Get the expected variable declaration format
@@ -292,7 +318,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Check if the variable has an assignment
 				if !assign || equal.(string) != "=" {
-					return NullVariable(), false, errors.New("Error: Missing variable assignment \"=\" on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing variable assignment \"=\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Get the rest of the line tokens and join them to feed the variable value
@@ -302,13 +328,13 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Make sure the variable value is not empty
 				if value == "" {
-					return NullVariable(), false, errors.New("Error: Missing variable value on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing variable value on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Create the variable and evaluate the value
-				evaluatedValue, err := EvaluateExpression(scope, value)
+				evaluatedValue, err := EvaluateExpression(scope, value, depth)
 				if err != nil {
-					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				if command.(string) != "val" && evaluatedValue.Type != command.(string) {
@@ -316,7 +342,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					// If the evaluated value is an empty array (e.g. []), then its evaluated type would be "val[]" and its length would be 0.
 					// Empty arrays are allowed to be assigned to any array type.
 					if !isArrayType(command.(string)) || evaluatedValue.Type != "val[]" || len(evaluatedValue.Value.([]Variable)) != 0 {
-						return NullVariable(), false, errors.New("Error: Invalid variable type on line " + strconv.Itoa(currentLine+1) + ". The type of the variable must be " + command.(string) + ".")
+						return NullVariable(), 0, errors.New("Error: Invalid variable type on line " + strconv.Itoa(currentLine+1) + ". The type of the variable must be " + command.(string) + ".")
 					} else {
 						// Properly assign the variable type for the empty array
 						evaluatedValue.Type = command.(string)
@@ -338,7 +364,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				// Parse the condition blocks
 				conditionBlocks, nextLine, err := ParseConditionBlocks(&tokens, currentLine, lines)
 				if err != nil {
-					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				currentLine = nextLine // Update the current line to skip the code block
@@ -354,16 +380,17 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					if conditionBlock.Condition == "else" {
 
 						// Directly execute the code
-						ifCondition := CreateFunction([]Argument{}, (*scope).Variables, "val", scope, conditionBlock.Code)
-						returnValue, toReturn, err := ifCondition.Run([]*Variable{}, map[string]*Variable{})
+						ifCondition := CreateFunction("if", []Argument{}, (*scope).Variables, "val", scope, conditionBlock.Code)
+						returnValue, toReturn, err := ifCondition.Run([]*Variable{}, map[string]*Variable{}, depth)
 
 						// If the code returns a value, return it
 						if err != nil {
-							return NullVariable(), false, err
+							return NullVariable(), 0, err
 						}
 
-						if toReturn {
-							return returnValue, true, nil
+						// Continue returning the value
+						if toReturn > 0 {
+							return returnValue, toReturn, nil
 						}
 
 						goToNextLine = true
@@ -373,15 +400,15 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 						// Is an if statement or if else statement
 						// Evaluate the condition
-						evaluatedCondition, err := EvaluateExpression(scope, conditionBlock.Condition)
+						evaluatedCondition, err := EvaluateExpression(scope, conditionBlock.Condition, depth)
 						if err != nil {
-							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(conditionBlock.ConditionIndex+1) + ".")
+							return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(conditionBlock.ConditionIndex+1) + ".")
 						}
 
 						// Check the type of the evaluated condition
 						// If it is not a boolean, return an error
 						if evaluatedCondition.Type != "bool" {
-							return NullVariable(), false, errors.New("Error: Invalid condition on line " + strconv.Itoa(conditionBlock.ConditionIndex+1) + ". The condition must be a boolean.")
+							return NullVariable(), 0, errors.New("Error: Invalid condition on line " + strconv.Itoa(conditionBlock.ConditionIndex+1) + ". The condition must be a boolean.")
 						}
 
 						// If the condition is true, execute the block of code
@@ -389,14 +416,15 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 							// Create a new scope for the block
 
-							ifCondition := CreateFunction([]Argument{}, (*scope).Variables, "val", scope, conditionBlock.Code)
-							returnValue, toReturn, err := ifCondition.Run([]*Variable{}, map[string]*Variable{})
+							ifCondition := CreateFunction("if", []Argument{}, (*scope).Variables, "val", scope, conditionBlock.Code)
+							returnValue, toReturn, err := ifCondition.Run([]*Variable{}, map[string]*Variable{}, depth)
+
 							if err != nil {
-								return NullVariable(), false, err
+								return NullVariable(), 0, err
 							}
 
-							if toReturn {
-								return returnValue, true, nil
+							if toReturn > 0 {
+								return returnValue, toReturn, nil
 							}
 
 							goToNextLine = true
@@ -423,26 +451,26 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 				// Check if the name for the function was provided
 				if !nameProvided {
-					return NullVariable(), false, errors.New("Error: Missing function name at decleration on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing function name at decleration on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Check if the function name is valid
 				// Again, they act like variables
 				if !HasValidVariableName(name.(string)) {
-					return NullVariable(), false, errors.New("Error: Invalid function name on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
+					return NullVariable(), 0, errors.New("Error: Invalid function name on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
 				}
 
 				// Check if the function name is already in use in the current scope
 				// A function and primitive variable cannot have the same name
 				if (*scope).VariableExists(name.(string)) {
-					return NullVariable(), false, errors.New("Error: Function was already declared by another variable on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Function was already declared by another variable on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Get the parameters for the function
 				// Check if the function parameters start with a paranthesis
 				char, charProvided := tokens.Pop()
 				if !charProvided || char.(string) != "(" {
-					return NullVariable(), false, errors.New("Error: Missing opening parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing opening parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// Parameters list
@@ -455,7 +483,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 					token, tokenProvided := tokens.Pop()
 
 					if !tokenProvided {
-						return NullVariable(), false, errors.New("Error: Missing closing parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
+						return NullVariable(), 0, errors.New("Error: Missing closing parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
 					}
 
 					if token.(string) == ")" {
@@ -464,14 +492,14 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						// Check if the parameter type is valid
 						// If it is not, return an error
 						if token.(string) != "val" && token.(string) != "int" && token.(string) != "float" && token.(string) != "bool" && token.(string) != "string" {
-							return NullVariable(), false, errors.New("Error: Invalid parameter type \"" + token.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Invalid parameter type \"" + token.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						// Get the dimensions of the variable.
 						// The dimensions are optional.
 						dimension, err := ExtractArrayDimensionFromDeclaration(&tokens)
 						if err != nil {
-							return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+							return nil, 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
 						}
 
 						token = token.(string) + strings.Repeat("[]", dimension)
@@ -479,13 +507,13 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						// Get the parameter name
 						parameterName, parameterNameProvided := tokens.Pop()
 						if !parameterNameProvided {
-							return NullVariable(), false, errors.New("Error: Missing parameter name on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Missing parameter name on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						// Check if the parameter name is valid
 						// If it is not, return an error
 						if !HasValidVariableName(parameterName.(string)) {
-							return NullVariable(), false, errors.New("Error: Invalid parameter name \"" + parameterName.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
+							return NullVariable(), 0, errors.New("Error: Invalid parameter name \"" + parameterName.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ". The name must be alphanumeric and start with a letter.")
 						}
 
 						// Create the parameter
@@ -501,7 +529,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						// If it is, continue the loop
 						token, tokenProvided = tokens.Pop()
 						if !tokenProvided {
-							return NullVariable(), false, errors.New("Error: Missing closing parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Missing closing parenthesis for the parameters on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						if token.(string) == "," {
@@ -509,7 +537,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						} else if token.(string) == ")" {
 							break
 						} else {
-							return NullVariable(), false, errors.New("Error: Invalid function syntax \"" + token.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Invalid function syntax \"" + token.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 					}
@@ -522,13 +550,13 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				if !returnTypeProvided {
 					returnType = "null"
 				} else if returnType.(string) != "val" && returnType.(string) != "int" && returnType.(string) != "float" && returnType.(string) != "bool" && returnType.(string) != "string" && returnType.(string) != "func" {
-					return NullVariable(), false, errors.New("Error: Invalid return type \"" + returnType.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Invalid return type \"" + returnType.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				// If its an array, get the dimensions
 				dimensions, err := ExtractArrayDimensionFromDeclaration(&tokens)
 				if err != nil {
-					return nil, false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
+					return nil, 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1))
 				}
 				// Apply the dimensions to the return type
 				returnType = returnType.(string) + strings.Repeat("[]", dimensions)
@@ -552,12 +580,12 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				}
 
 				if !funcEnded {
-					return NullVariable(), false, errors.New("Error: Missing end for function \"" + name.(string) + "\" on line " + strconv.Itoa(functionStart+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Missing end for function \"" + name.(string) + "\" on line " + strconv.Itoa(functionStart+1) + ".")
 				}
 
 				// Create the function and add it to the scope
 				//function := CreateVariable(CreateFunction(parameters, (*scope).Variables, returnType.(string), functionCode))
-				function := CreateVariable(CreateFunction(parameters, make(map[string]*Variable), returnType.(string), scope, functionCode))
+				function := CreateVariable(CreateFunction(name.(string), parameters, make(map[string]*Variable), returnType.(string), scope, functionCode))
 				(*scope).Variables[name.(string)] = &function
 
 			case "return":
@@ -572,9 +600,9 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				// Evaluate the expression
 				if expression != "" {
 					// Evaluate the expression
-					value, err := EvaluateExpression(scope, expression)
+					value, err := EvaluateExpression(scope, expression, depth)
 					if err != nil {
-						return NullVariable(), false, err
+						return NullVariable(), 0, err
 					}
 					// Set the return value
 					returnValue = value
@@ -583,57 +611,65 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 				// Check if the return value is valid type
 				// If it is not, return an error
 				if returnValue == (Variable{}) {
-					return NullVariable(), true, nil
+					return NullVariable(), 1, nil
 				} else if returnValue.Type == (*scope).Return || (*scope).Return == "val" {
-					return &returnValue, true, nil
+					return &returnValue, 1, nil
 				} else {
-					return NullVariable(), true, errors.New("Error: Invalid return type \"" + returnValue.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 1, errors.New("Error: Invalid return type \"" + returnValue.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 			case "break":
-				return NullVariable(), false, nil
+
+				// Return until exit the for loop
+				return NullVariable(), 2, nil
 
 			case "for":
 
 				loopBlock, nextLine, err := ParseLoopBlock(&tokens, currentLine, lines)
 
 				if err != nil {
-					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				currentLine = nextLine
 
-				evaluatedCondition, err := EvaluateExpression(scope, loopBlock.Condition)
+				evaluatedCondition, err := EvaluateExpression(scope, loopBlock.Condition, depth)
 				if err != nil {
-					return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				if evaluatedCondition.Type != "bool" {
-					return NullVariable(), false, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 				for evaluatedCondition.Value.(bool) {
 
-					forLoop := CreateFunction([]Argument{}, (*scope).Variables, "val", scope, loopBlock.Code)
-					returnValue, toReturn, err := forLoop.Run([]*Variable{}, map[string]*Variable{})
+					forLoop := CreateFunction("for", []Argument{}, (*scope).Variables, "val", scope, loopBlock.Code)
+					returnValue, toReturn, err := forLoop.Run([]*Variable{}, map[string]*Variable{}, depth)
 
 					// If the code returns a value, return it
 					if err != nil {
-						return NullVariable(), false, err
+						return NullVariable(), 0, err
 					}
 
-					if toReturn {
-						return returnValue, true, nil
+					// If the code returns a value, return it to the caller
+					if toReturn == 1 {
+						return returnValue, toReturn, nil
+					}
+
+					// Exit the for loop if the break statement was called
+					if toReturn == 2 {
+						return returnValue, 0, nil
 					}
 
 					// Evaluate the condition
-					evaluatedCondition, err = EvaluateExpression(scope, loopBlock.Condition)
+					evaluatedCondition, err = EvaluateExpression(scope, loopBlock.Condition, depth)
 					if err != nil {
-						return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+						return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 					}
 
 					if evaluatedCondition.Type != "bool" {
-						return NullVariable(), false, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+						return NullVariable(), 0, errors.New("Error: Invalid condition type \"" + evaluatedCondition.Type + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 					}
 
 					// Exit the loop if the condition is false
@@ -657,20 +693,20 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 						// Check if array
 						if !isArrayType((*variable).Type) {
-							return NullVariable(), false, errors.New("Error: '" + peeked.(string) + "' cannot access that index because it might not be an array on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: '" + peeked.(string) + "' cannot access that index because it might not be an array on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						tokens.Pop()
-						indexArray, err := (*scope).ExtractArrayValues(&tokens)
+						indexArray, err := (*scope).ExtractArrayValues(&tokens, depth)
 						if err != nil {
-							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 						if len(indexArray) != 1 || indexArray[0].Type != "int" {
-							return NullVariable(), false, errors.New("Error: Invalid array index on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Invalid array index on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 						size := int64(len((*variable).Value.([]Variable)))
 						if size == 0 {
-							return NullVariable(), false, errors.New("Error: Array is empty on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Array is empty on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 						index := indexArray[0].Value.(int64) % size
 						if index < 0 { // Handle negative indexes
@@ -691,10 +727,10 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 						// Simply execute the command and return NO value
 
 						output := command.(string) + InlineQueueToString(&tokens)
-						_, err := EvaluateExpression(scope, output)
+						_, err := EvaluateExpression(scope, output, depth)
 
 						if err != nil {
-							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 					} else {
@@ -708,14 +744,14 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 						// Make sure the variable value is valid (not empty)
 						if value == "" {
-							return NullVariable(), false, errors.New("Error: Missing variable value on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New("Error: Missing variable value on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						// Create the new variable.
 						// Evaluate the value and update the variable.
-						evaluatedValue, err := EvaluateExpression(scope, value)
+						evaluatedValue, err := EvaluateExpression(scope, value, depth)
 						if err != nil {
-							return NullVariable(), false, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
+							return NullVariable(), 0, errors.New(err.Error() + " on line " + strconv.Itoa(currentLine+1) + ".")
 						}
 
 						// Check safe assignment
@@ -724,7 +760,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 							// Accept to store type[] inside val[]
 							// Although, do not change the type of the variable
 							if !isArrayType((*variable).Type) && !isArrayType(evaluatedValue.Type) && strings.ReplaceAll((*variable).Type, "[]", "") != "val" {
-								return NullVariable(), false, errors.New("Error: Variable type mismatch on line " + strconv.Itoa(currentLine+1) + ". Expected type " + (*scope).Variables[command.(string)].Type + " but got type " + evaluatedValue.Type + ".")
+								return NullVariable(), 0, errors.New("Error: Variable type mismatch on line " + strconv.Itoa(currentLine+1) + ". Expected type " + (*scope).Variables[command.(string)].Type + " but got type " + evaluatedValue.Type + ".")
 							} else {
 								evaluatedValue.Type = (*variable).Type
 							}
@@ -740,25 +776,25 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 					}
 
-				} else if ExistsIncluded(command.(string)) {
+				} else if ExistsBuiltIn(command.(string)) {
 
 					// Extract the function's arguments
-					args, err := (*scope).ExtractFunctionArgs(&tokens)
+					args, err := (*scope).ExtractFunctionArgs(&tokens, depth)
 
 					if err != nil {
-						return NullVariable(), false, err
+						return NullVariable(), 0, err
 					}
 
 					// Call the function
 
-					_, err = RunIncluded(command.(string), args)
+					_, err = RunBuiltIn(command.(string), args)
 					if err != nil {
-						return NullVariable(), false, err
+						return NullVariable(), 0, err
 					}
 
 				} else {
 					// Command is unknown
-					return NullVariable(), false, errors.New("Error: Unknown command \"" + command.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
+					return NullVariable(), 0, errors.New("Error: Unknown command \"" + command.(string) + "\" on line " + strconv.Itoa(currentLine+1) + ".")
 				}
 
 			}
@@ -767,5 +803,5 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable)) (*Vari
 
 	}
 
-	return NullVariable(), false, nil
+	return NullVariable(), 0, nil
 }

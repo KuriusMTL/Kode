@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 /**
@@ -15,7 +16,7 @@ import (
  * @param name : string - The name of the function.
  * @return boolean - True if the function exists, false otherwise.
 **/
-func ExistsIncluded(name string) bool {
+func ExistsBuiltIn(name string) bool {
 	switch name {
 	case "print":
 		return true
@@ -43,6 +44,10 @@ func ExistsIncluded(name string) bool {
 		return true
 	case "sqrt":
 		return true
+	case "isNumeric":
+		return true
+	case "isAlphaNumeric":
+		return true
 	default:
 		return false
 	}
@@ -55,7 +60,7 @@ func ExistsIncluded(name string) bool {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func RunIncluded(name string, args []*Variable) (*Variable, error) {
+func RunBuiltIn(name string, args []*Variable) (*Variable, error) {
 	switch name {
 	case "print":
 		return Print(args)
@@ -83,6 +88,10 @@ func RunIncluded(name string, args []*Variable) (*Variable, error) {
 		return Round(args)
 	case "sqrt":
 		return Sqrt(args)
+	case "isNumeric":
+		return IsNumeric(args)
+	case "isAlphaNumeric":
+		return IsAlphaNumeric(args)
 	default:
 		return NullVariable(), nil
 	}
@@ -449,4 +458,46 @@ func Sqrt(args []*Variable) (*Variable, error) {
 		variable := CreateVariable(math.Sqrt(float64(i)))
 		return &variable, nil
 	}
+}
+
+func IsNumeric(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 string argument for \"isNumeric\"")
+	}
+
+	if args[0].Type != "string" {
+		return NullVariable(), errors.New("Error: Argument must be a string for \"isNumeric\"")
+	}
+
+	// Check if the string is numeric
+	str := args[0].Value.(string)
+	_, err := strconv.ParseFloat(str, 64)
+	if err == nil {
+		variable := CreateVariable(true)
+		return &variable, nil
+	} else {
+		variable := CreateVariable(false)
+		return &variable, nil
+	}
+}
+
+func IsAlphaNumeric(args []*Variable) (*Variable, error) {
+	if len(args) != 1 {
+		return NullVariable(), errors.New("Error: Expected 1 string argument for \"isNumeric\"")
+	}
+
+	if args[0].Type != "string" {
+		return NullVariable(), errors.New("Error: Argument must be a string for \"isNumeric\"")
+	}
+
+	for _, c := range args[0].Value.(string) {
+		if !unicode.IsLetter(c) && !unicode.IsNumber(c) {
+			variable := CreateVariable(false)
+			return &variable, nil
+		}
+	}
+
+	variable := CreateVariable(true)
+	return &variable, nil
+
 }

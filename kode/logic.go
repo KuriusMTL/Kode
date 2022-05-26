@@ -12,7 +12,7 @@ import (
  * @return Variable - The result of the expression.
  * @return error - The error if any.
  */
-func EvaluateExpression(scope *Function, str string) (Variable, error) {
+func EvaluateExpression(scope *Function, str string, depth int64) (Variable, error) {
 
 	// Tokenize the line
 	// "is" and "not" are implicitly parsed as well
@@ -41,11 +41,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 		// ! SELF
 		if token.(string) == "self" {
-			(*scope).IsInstance = true
+			// (*scope).IsInstance = true
 			values.Push(CreateVariable(*scope))
 			// ! PARENT
 		} else if token.(string) == "super" {
-			(*scope).IsInstance = true
+			// (*scope).IsInstance = true
 			values.Push(CreateVariable(*(*scope).Parent))
 			// Check if the token is a number
 			// ! NULL
@@ -95,7 +95,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				} else {
 
 					// Extract the function's arguments
-					args, err := (*scope).ExtractFunctionArgs(&queue)
+					args, err := (*scope).ExtractFunctionArgs(&queue, depth)
 
 					if err != nil {
 						return Variable{}, err
@@ -106,7 +106,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					copyFunc := CopyFunction(&function)
 					newVars := CopyVariableMap((*copyFunc).Parent.Variables)
 					(*copyFunc).Variables = newVars
-					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1)
 					if err != nil {
 						return Variable{}, err
 					}
@@ -232,7 +232,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			} else {
 
 				// Extract the function's arguments
-				args, err := (*scope).ExtractFunctionArgs(&queue)
+				args, err := (*scope).ExtractFunctionArgs(&queue, depth)
 
 				if err != nil {
 					return Variable{}, err
@@ -244,7 +244,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 				(*copyFunc).Variables = map[string]*Variable{"_DEBUG": (*scope).GetVariable("_DEBUG"), "_MAX_RECURSION": (*scope).GetVariable("_MAX_RECURSION")}
 				(*copyFunc).Parent = copyFunc
-				instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+				instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1)
 				if err != nil {
 					return Variable{}, err
 				}
@@ -266,7 +266,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					values.Push(*(*scope).GetVariable(token.(string)))
 				} else {
 					// Extract the function's arguments
-					args, err := (*scope).ExtractFunctionArgs(&queue)
+					args, err := (*scope).ExtractFunctionArgs(&queue, depth)
 
 					if err != nil {
 						return Variable{}, err
@@ -277,7 +277,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					copyFunc := CopyFunction(&function)
 					newVars := CopyVariableMap((*copyFunc).Parent.Variables)
 					(*copyFunc).Variables = newVars
-					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1)
 					if err != nil {
 						return Variable{}, err
 					}
@@ -300,7 +300,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					}
 
 					queue.Pop()
-					indexArray, err := (*scope).ExtractArrayValues(&queue)
+					indexArray, err := (*scope).ExtractArrayValues(&queue, depth)
 					if err != nil {
 						return Variable{}, err
 					}
@@ -340,7 +340,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 		} else if token.(string) == "[" {
 
 			// Extract the array's value
-			array, err := (*scope).ExtractArrayValues(&queue)
+			array, err := (*scope).ExtractArrayValues(&queue, depth)
 			if err != nil {
 				return Variable{}, err
 			}
@@ -476,10 +476,10 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			operators.Push(currOp) // Push the operator to the operators stack
 
 			// ! PREBUILT FUNCTION
-		} else if ExistsIncluded(token.(string)) {
+		} else if ExistsBuiltIn(token.(string)) {
 
 			// Extract the function's arguments
-			args, err := (*scope).ExtractFunctionArgs(&queue)
+			args, err := (*scope).ExtractFunctionArgs(&queue, depth)
 
 			if err != nil {
 				return Variable{}, err
@@ -487,7 +487,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// Call the function
 
-			result, err := RunIncluded(token.(string), args)
+			result, err := RunBuiltIn(token.(string), args)
 			if err != nil {
 				return Variable{}, err
 			}
