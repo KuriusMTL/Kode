@@ -90,5 +90,6 @@ func InlineParse(txt string, delimiters []string, includeDelimiter bool) []strin
  * @return string - The formatted text.
  */
 func HandleEscapeCharacters(txt string) string {
-	return strings.Replace(txt, "\\\"", "\"", -1)
+	txt = strings.Replace(txt, "\\\"", "\"", -1) // Replace escaped quotes
+	return strings.Replace(txt, "\\n", "\n", -1) // Replace escaped newlines
 }

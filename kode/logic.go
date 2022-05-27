@@ -1,7 +1,6 @@
 package kode
 
 import (
-	"errors"
 	"strconv"
 )
 
@@ -12,7 +11,7 @@ import (
  * @return Variable - The result of the expression.
  * @return error - The error if any.
  */
-func EvaluateExpression(scope *Function, str string) (Variable, error) {
+func EvaluateExpression(scope *Function, str string, depth int64, startLine int) (Variable, *ErrorStack) {
 
 	// Tokenize the line
 	// "is" and "not" are implicitly parsed as well
@@ -41,11 +40,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 		// ! SELF
 		if token.(string) == "self" {
-			(*scope).IsInstance = true
+			// (*scope).IsInstance = true
 			values.Push(CreateVariable(*scope))
 			// ! PARENT
 		} else if token.(string) == "super" {
-			(*scope).IsInstance = true
+			// (*scope).IsInstance = true
 			values.Push(CreateVariable(*(*scope).Parent))
 			// Check if the token is a number
 			// ! NULL
@@ -58,11 +57,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			value, hasValue := values.Pop()
 
 			if !hasValue {
-				return CreateVariable(nil), errors.New("Improper use of '.'")
+				return CreateVariable(nil), CreateError("Error: Improper use of '.'", startLine)
 			}
 
 			if value.(Variable).Type != "func" {
-				return CreateVariable(nil), errors.New("Could not access a non-function (" + value.(Variable).Type + ") using '.'")
+				return CreateVariable(nil), CreateError("Error: Could not access a non-function ("+value.(Variable).Type+") using '.'", startLine)
 			}
 
 			// Get the function
@@ -72,7 +71,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			varName, hasVar := queue.Pop()
 
 			if !hasVar {
-				return CreateVariable(nil), errors.New("Improper use of '.'")
+				return CreateVariable(nil), CreateError("Error: Improper use of '.'", startLine)
 			}
 
 			// Get the function
@@ -80,7 +79,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// Check if the variable exists in the function
 			if variable == nil {
-				return CreateVariable(nil), errors.New("Could not find variable '" + varName.(string) + "' in the function")
+				return CreateVariable(nil), CreateError("Error: Variable '"+varName.(string)+"' does not exist in the function", startLine)
 			}
 
 			// Evaluate the sub variable
@@ -95,7 +94,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				} else {
 
 					// Extract the function's arguments
-					args, err := (*scope).ExtractFunctionArgs(&queue)
+					args, err := (*scope).ExtractFunctionArgs(&queue, depth, startLine)
 
 					if err != nil {
 						return Variable{}, err
@@ -106,9 +105,9 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					copyFunc := CopyFunction(&function)
 					newVars := CopyVariableMap((*copyFunc).Parent.Variables)
 					(*copyFunc).Variables = newVars
-					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1, 0)
 					if err != nil {
-						return Variable{}, err
+						return Variable{}, err.AddError(CreateError("Error: Unexpected error in function '"+token.(string)+"'", startLine))
 					}
 
 					values.Push(*instance)
@@ -138,7 +137,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 					// If it meets another ".", it is not a float and has an invalid format (error)
 					if isFloat {
-						return CreateVariable(nil), errors.New("Invalid floating point number")
+						return CreateVariable(nil), CreateError("Error: Invalid number format", startLine)
 					} else {
 						isFloat = true
 					}
@@ -196,7 +195,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// Check for incomplete string errors
 			if nextToken == nil || nextToken.(string) != "\"" {
-				return Variable{}, errors.New("Error: Missing closing quote for string")
+				return Variable{}, CreateError("Error: Missing closing quote for string", startLine)
 			} else {
 
 				// No errors found, push the string to the values stack
@@ -211,16 +210,16 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			nextToken, valid := queue.Pop()
 
 			if !valid {
-				return Variable{}, errors.New("Error: Missing function name after 'new'")
+				return Variable{}, CreateError("Error: Missing variable name after 'new'", startLine)
 			}
 
 			if !(*scope).VariableExists(nextToken.(string)) {
-				return Variable{}, errors.New("Error: Unknown variable '" + nextToken.(string) + "'")
+				return Variable{}, CreateError("Error: Variable '"+nextToken.(string)+"' does not exist", startLine)
 			}
 
 			// Check if the variable is a function
 			if (*scope).GetVariable(nextToken.(string)).Type != "func" {
-				return Variable{}, errors.New("Error: '" + nextToken.(string) + "' is not a function")
+				return Variable{}, CreateError("Error: Variable '"+nextToken.(string)+"' is not a function", startLine)
 			}
 
 			// Check if the function is called
@@ -232,7 +231,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			} else {
 
 				// Extract the function's arguments
-				args, err := (*scope).ExtractFunctionArgs(&queue)
+				args, err := (*scope).ExtractFunctionArgs(&queue, depth, startLine)
 
 				if err != nil {
 					return Variable{}, err
@@ -244,9 +243,9 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 				(*copyFunc).Variables = map[string]*Variable{"_DEBUG": (*scope).GetVariable("_DEBUG"), "_MAX_RECURSION": (*scope).GetVariable("_MAX_RECURSION")}
 				(*copyFunc).Parent = copyFunc
-				instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+				instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1, 0)
 				if err != nil {
-					return Variable{}, err
+					return Variable{}, CreateError("Error: Unexpected error when calling function '"+nextToken.(string)+"'", startLine)
 				}
 
 				values.Push(*instance)
@@ -266,7 +265,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					values.Push(*(*scope).GetVariable(token.(string)))
 				} else {
 					// Extract the function's arguments
-					args, err := (*scope).ExtractFunctionArgs(&queue)
+					args, err := (*scope).ExtractFunctionArgs(&queue, depth, startLine)
 
 					if err != nil {
 						return Variable{}, err
@@ -277,9 +276,9 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					copyFunc := CopyFunction(&function)
 					newVars := CopyVariableMap((*copyFunc).Parent.Variables)
 					(*copyFunc).Variables = newVars
-					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{})
+					instance, _, err := (*copyFunc).Run(args, map[string]*Variable{}, depth+1, 0)
 					if err != nil {
-						return Variable{}, err
+						return Variable{}, err.AddError(CreateError("Error: Unexpected error when calling function '"+token.(string)+"'", startLine))
 					}
 
 					values.Push(*instance)
@@ -296,20 +295,20 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 					// Check if array
 					if !isArrayType(variable.Type) && variable.Type != "string" {
-						return Variable{}, errors.New("Error: '" + token.(string) + "' cannot access that index because it might not be an array or a string")
+						return Variable{}, CreateError("Error: '"+token.(string)+"' cannot access that index because it might not be an array or a string", startLine)
 					}
 
 					queue.Pop()
-					indexArray, err := (*scope).ExtractArrayValues(&queue)
+					indexArray, err := (*scope).ExtractArrayValues(&queue, depth, startLine)
 					if err != nil {
 						return Variable{}, err
 					}
 					if len(indexArray) != 1 || indexArray[0].Type != "int" {
-						return Variable{}, errors.New("Error: Invalid array index")
+						return Variable{}, CreateError("Error: Array index must be an integer", startLine)
 					}
 
 					// Extract the max index
-					size, err := GetArraySize(&variable)
+					size, err := GetArraySize(&variable, startLine)
 					if err != nil {
 						return Variable{}, err
 					}
@@ -340,7 +339,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 		} else if token.(string) == "[" {
 
 			// Extract the array's value
-			array, err := (*scope).ExtractArrayValues(&queue)
+			array, err := (*scope).ExtractArrayValues(&queue, depth, startLine)
 			if err != nil {
 				return Variable{}, err
 			}
@@ -361,7 +360,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// Check if the operators stack is empty
 			if !valid {
-				return Variable{}, errors.New("Error: Invalid expression. Missing a \"(\"")
+				return Variable{}, CreateError("Error: Invalid expression. Missing a \"(\"", startLine)
 			}
 
 			for peeked.(string) != "(" {
@@ -370,7 +369,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				operator, valid := operators.Pop()
 
 				if !valid {
-					return Variable{}, errors.New("Error: Invalid expression. Missing a \"(\"")
+					return Variable{}, CreateError("Error: Invalid expression. Missing a \"(\"", startLine)
 				}
 
 				// Check for negation
@@ -378,11 +377,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					val2, exists2 := values.Pop()
 
 					if !exists2 {
-						return Variable{}, errors.New("Error: Invalid expression 1")
+						return Variable{}, CreateError("Error: Invalid expression (1). Missing a value", startLine)
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
+					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable), startLine)
 
 					// Handle any operation errors
 					if opError != nil {
@@ -396,11 +395,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					val2, exists2 := values.Pop()
 					val1, exists1 := values.Pop()
 					if !exists1 || !exists2 {
-						return Variable{}, errors.New("Error: Invalid expression 2")
+						return Variable{}, CreateError("Error: Invalid expression (2). Missing a value", startLine)
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
+					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable), startLine)
 
 					// Handle any operation errors
 					if opError != nil {
@@ -413,7 +412,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				peeked, valid = operators.Peek()
 
 				if !valid {
-					return Variable{}, errors.New("Error: Invalid expression 3")
+					return Variable{}, CreateError("Error: Invalid expression (3). Missing a value", startLine)
 				}
 			}
 
@@ -437,11 +436,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 				if operator.(string) == "¬" || operator.(string) == "not" {
 					val2, exists2 := values.Pop()
 					if !exists2 {
-						return Variable{}, errors.New("Error: Invalid expression 4")
+						return Variable{}, CreateError("Error: Invalid expression (4). Missing a value", startLine)
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
+					result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable), startLine)
 
 					// Handle any operation errors
 					if opError != nil {
@@ -455,11 +454,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 					val2, exists2 := values.Pop()
 					val1, exists1 := values.Pop()
 					if !exists1 || !exists2 {
-						return Variable{}, errors.New("Error: Invalid expression 5")
+						return Variable{}, CreateError("Error: Invalid expression (5). Missing a value", startLine)
 					}
 
 					// Compute the result
-					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
+					result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable), startLine)
 
 					// Handle any operation errors
 					if opError != nil {
@@ -476,10 +475,10 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			operators.Push(currOp) // Push the operator to the operators stack
 
 			// ! PREBUILT FUNCTION
-		} else if ExistsIncluded(token.(string)) {
+		} else if ExistsBuiltIn(token.(string)) {
 
 			// Extract the function's arguments
-			args, err := (*scope).ExtractFunctionArgs(&queue)
+			args, err := (*scope).ExtractFunctionArgs(&queue, depth, startLine)
 
 			if err != nil {
 				return Variable{}, err
@@ -487,7 +486,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// Call the function
 
-			result, err := RunIncluded(token.(string), args)
+			result, err := RunBuiltIn(token.(string), args, startLine)
 			if err != nil {
 				return Variable{}, err
 			}
@@ -496,7 +495,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 			// ! UNKNOWN
 		} else {
-			return Variable{}, errors.New("Error: Invalid expression \"" + token.(string) + "\"")
+			return Variable{}, CreateError("Error: Invalid expression \""+token.(string)+"\"", startLine)
 		}
 
 	}
@@ -508,11 +507,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 		if operator.(string) == "¬" || operator.(string) == "not" {
 			val2, exists2 := values.Pop()
 			if !exists2 {
-				return Variable{}, errors.New("Error: Invalid expression 7")
+				return Variable{}, CreateError("Error: Invalid expression (7). Missing a value", startLine)
 			}
 
 			// Compute the result
-			result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable))
+			result, opError := ApplyOperator(operator.(string), Variable{}, val2.(Variable), startLine)
 
 			// Handle any operation errors
 			if opError != nil {
@@ -526,11 +525,11 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 			val2, exists2 := values.Pop()
 			val1, exists1 := values.Pop()
 			if !exists1 || !exists2 {
-				return Variable{}, errors.New("Error: Invalid expression 8")
+				return Variable{}, CreateError("Error: Invalid expression (8). Missing a value", startLine)
 			}
 
 			// Compute the result
-			result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable))
+			result, opError := ApplyOperator(operator.(string), val1.(Variable), val2.(Variable), startLine)
 
 			// Handle any operation errors
 			if opError != nil {
@@ -546,7 +545,7 @@ func EvaluateExpression(scope *Function, str string) (Variable, error) {
 
 	// Check if the values stack is empty. If it is, then the expression is invalid
 	if !exists {
-		return Variable{}, errors.New("Error: Empty expression")
+		return Variable{}, CreateError("Error: Empty expression", startLine)
 	}
 
 	return value.(Variable), nil

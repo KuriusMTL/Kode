@@ -102,12 +102,12 @@ func CopyFunction(originalFunction *Function) *Function {
 
 	newVars := CopyVariableMap((*originalFunction).Variables)
 	newFunction := &Function{
-		Code:       (*originalFunction).Code,
-		Return:     (*originalFunction).Return,
-		Arguments:  (*originalFunction).Arguments,
-		Variables:  newVars,
-		IsInstance: (*originalFunction).IsInstance,
-		Parent:     (*originalFunction).Parent,
+		Code:      (*originalFunction).Code,
+		Return:    (*originalFunction).Return,
+		Arguments: (*originalFunction).Arguments,
+		Variables: newVars,
+		Parent:    (*originalFunction).Parent,
+		Name:      (*originalFunction).Name,
 	}
 	return newFunction
 }

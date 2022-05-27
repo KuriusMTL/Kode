@@ -1,7 +1,6 @@
 package kode
 
 import (
-	"errors"
 	"math"
 	"strings"
 )
@@ -67,41 +66,41 @@ func isOperator(op string) bool {
 	}
 }
 
-func ApplyOperator(op string, val1 Variable, val2 Variable) (Variable, error) {
+func ApplyOperator(op string, val1 Variable, val2 Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch op {
 	case "+", "or":
-		return val1.Add(&val2)
+		return val1.Add(&val2, startLine)
 	case "-":
-		return val1.Sub(&val2)
+		return val1.Sub(&val2, startLine)
 	case "*", "and":
-		return val1.Mult(&val2)
+		return val1.Mult(&val2, startLine)
 	case "/":
-		return val1.Div(&val2)
+		return val1.Div(&val2, startLine)
 	case "^":
-		return val1.Pow(&val2)
+		return val1.Pow(&val2, startLine)
 	case "%":
-		return val1.Mod(&val2)
+		return val1.Mod(&val2, startLine)
 	case "¬", "not":
-		return val2.Neg()
+		return val2.Neg(startLine)
 	case "==", "is":
-		return val1.Equal(&val2)
+		return val1.Equal(&val2, startLine)
 	case "!=":
-		return val1.NotEqual(&val2)
+		return val1.NotEqual(&val2, startLine)
 	case ">":
-		return val1.Greater(&val2)
+		return val1.Greater(&val2, startLine)
 	case "<":
-		return val1.Less(&val2)
+		return val1.Less(&val2, startLine)
 	case ">=":
-		return val1.GreaterEqual(&val2)
+		return val1.GreaterEqual(&val2, startLine)
 	case "<=":
-		return val1.LessEqual(&val2)
+		return val1.LessEqual(&val2, startLine)
 	default:
-		return Variable{}, errors.New("Error: Invalid operator (" + op + ")")
+		return Variable{}, CreateError("Error: Invalid operator ("+op+")", startLine)
 	}
 }
 
-func (val1 *Variable) Add(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Add(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
@@ -152,10 +151,10 @@ func (val1 *Variable) Add(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " + " + (*val2).Type + ") operation with addition")
+	return Variable{}, CreateError("Error: Cannot add values of type ("+(*val1).Type+") and ("+(*val2).Type+")", startLine)
 }
 
-func (val1 *Variable) Sub(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Sub(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
@@ -186,10 +185,10 @@ func (val1 *Variable) Sub(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " - " + (*val2).Type + ") operation with substraction")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+" - "+(*val2).Type+") operation with subtraction", startLine)
 }
 
-func (val1 *Variable) Mult(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Mult(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
@@ -197,6 +196,8 @@ func (val1 *Variable) Mult(val2 *Variable) (Variable, error) {
 			return Variable{Type: "int", Value: (*val1).Value.(int64) * (*val2).Value.(int64)}, nil
 		} else if (*val2).Type == "float" {
 			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) * (*val2).Value.(float64)}, nil
+		} else if (*val2).Type == "string" {
+			return Variable{Type: "string", Value: strings.Repeat((*val1).Value.(string), int((*val2).Value.(int64)))}, nil
 		} else {
 			break
 		}
@@ -232,24 +233,24 @@ func (val1 *Variable) Mult(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " * " + (*val2).Type + ") operation with multiplication")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+" * "+(*val2).Type+") operation with multiplication", startLine)
 }
 
-func (val1 *Variable) Div(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Div(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
 		if (*val2).Type == "int" {
 
 			if (*val2).Value.(int64) == 0 {
-				return Variable{}, errors.New("Error: Division by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			return Variable{Type: "int", Value: (*val1).Value.(int64) / (*val2).Value.(int64)}, nil
 		} else if (*val2).Type == "float" {
 
 			if (*val2).Value.(float64) == 0 {
-				return Variable{}, errors.New("Error: Division by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			return Variable{Type: "float", Value: float64((*val1).Value.(int64)) / (*val2).Value.(float64)}, nil
@@ -262,14 +263,14 @@ func (val1 *Variable) Div(val2 *Variable) (Variable, error) {
 		if (*val2).Type == "int" {
 
 			if (*val2).Value.(int64) == 0 {
-				return Variable{}, errors.New("Error: Division by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			return Variable{Type: "float", Value: (*val1).Value.(float64) / float64((*val2).Value.(int64))}, nil
 		} else if (*val2).Type == "float" {
 
 			if (*val2).Value.(float64) == 0 {
-				return Variable{}, errors.New("Error: Division by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			return Variable{Type: "float", Value: (*val1).Value.(float64) / (*val2).Value.(float64)}, nil
@@ -282,10 +283,10 @@ func (val1 *Variable) Div(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " / " + (*val2).Type + ") operation with division")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+" / "+(*val2).Type+") operation with division", startLine)
 }
 
-func (val1 *Variable) Pow(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Pow(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
@@ -312,24 +313,24 @@ func (val1 *Variable) Pow(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " ^ " + (*val2).Type + ") operation with exponent")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+" ^ "+(*val2).Type+") operation with exponent", startLine)
 }
 
-func (val1 *Variable) Mod(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Mod(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 	switch (*val1).Type {
 	case "int":
 
 		if (*val2).Type == "int" {
 
 			if (*val2).Value.(int64) == 0 {
-				return Variable{}, errors.New("Error: Modulo by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			return Variable{Type: "int", Value: (*val1).Value.(int64) % (*val2).Value.(int64)}, nil
 		} else if (*val2).Type == "float" {
 
 			if (*val2).Value.(float64) == 0 {
-				return Variable{}, errors.New("Error: Modulo by zero")
+				return Variable{}, CreateError("Error: Cannot divide by zero", startLine)
 			}
 
 			k := math.Floor(float64((*val1).Value.(int64)) / (*val2).Value.(float64))
@@ -344,7 +345,7 @@ func (val1 *Variable) Mod(val2 *Variable) (Variable, error) {
 		if (*val2).Type == "int" {
 
 			if (*val2).Value.(int64) == 0 {
-				return Variable{}, errors.New("Error: Modulo by zero")
+				return Variable{}, CreateError("Error: Modulo by zero", startLine)
 			}
 
 			k := math.Floor((*val1).Value.(float64) / float64((*val2).Value.(int64)))
@@ -353,7 +354,7 @@ func (val1 *Variable) Mod(val2 *Variable) (Variable, error) {
 		} else if (*val2).Type == "float" {
 
 			if (*val2).Value.(float64) == 0 {
-				return Variable{}, errors.New("Error: Modulo by zero")
+				return Variable{}, CreateError("Error: Modulo by zero", startLine)
 			}
 
 			k := math.Floor((*val1).Value.(float64) / val2.Value.(float64))
@@ -368,10 +369,10 @@ func (val1 *Variable) Mod(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + " % " + (*val2).Type + ") operation with modulo")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+" % "+(*val2).Type+") operation with modulo", startLine)
 }
 
-func (val1 *Variable) Neg() (Variable, error) {
+func (val1 *Variable) Neg(startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -391,10 +392,10 @@ func (val1 *Variable) Neg() (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Invalid type (" + (*val1).Type + ") operation with negation")
+	return Variable{}, CreateError("Error: Invalid type ("+(*val1).Type+") operation with negation", startLine)
 }
 
-func (val1 *Variable) Equal(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Equal(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -439,11 +440,11 @@ func (val1 *Variable) Equal(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+	return Variable{}, CreateError("Error: Cannot compare "+(*val1).Type+" with "+(*val2).Type+" type", startLine)
 }
 
-func (val1 *Variable) NotEqual(val2 *Variable) (Variable, error) {
-	result, err := val1.Equal(val2)
+func (val1 *Variable) NotEqual(val2 *Variable, startLine int) (Variable, *ErrorStack) {
+	result, err := val1.Equal(val2, startLine)
 	if err != nil {
 		return Variable{}, err
 	} else {
@@ -451,7 +452,7 @@ func (val1 *Variable) NotEqual(val2 *Variable) (Variable, error) {
 	}
 }
 
-func (val1 *Variable) Greater(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Greater(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -483,10 +484,10 @@ func (val1 *Variable) Greater(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+	return Variable{}, CreateError("Error: Cannot compare "+(*val1).Type+" with "+(*val2).Type+" type", startLine)
 }
 
-func (val1 *Variable) Less(val2 *Variable) (Variable, error) {
+func (val1 *Variable) Less(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -518,10 +519,10 @@ func (val1 *Variable) Less(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+	return Variable{}, CreateError("Error: Cannot compare "+(*val1).Type+" with "+(*val2).Type+" type", startLine)
 }
 
-func (val1 *Variable) GreaterEqual(val2 *Variable) (Variable, error) {
+func (val1 *Variable) GreaterEqual(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -553,10 +554,10 @@ func (val1 *Variable) GreaterEqual(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+	return Variable{}, CreateError("Error: Cannot compare "+(*val1).Type+" with "+(*val2).Type+" type", startLine)
 }
 
-func (val1 *Variable) LessEqual(val2 *Variable) (Variable, error) {
+func (val1 *Variable) LessEqual(val2 *Variable, startLine int) (Variable, *ErrorStack) {
 
 	switch (*val1).Type {
 	case "int":
@@ -588,5 +589,5 @@ func (val1 *Variable) LessEqual(val2 *Variable) (Variable, error) {
 	}
 
 	// If incompatible types, return error
-	return Variable{}, errors.New("Error: Cannot compare " + (*val1).Type + " with " + (*val2).Type + " type")
+	return Variable{}, CreateError("Error: Cannot compare "+(*val1).Type+" with "+(*val2).Type+" type", startLine)
 }
