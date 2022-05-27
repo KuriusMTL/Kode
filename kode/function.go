@@ -655,7 +655,7 @@ func (scope *Function) Run(args []*Variable, vars map[string](*Variable), depth 
 
 					// Exit the for loop if the break statement was called
 					if toReturn == 2 {
-						return returnValue, 0, nil
+						break
 					}
 
 					// Evaluate the condition
