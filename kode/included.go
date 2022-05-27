@@ -1,7 +1,6 @@
 package kode
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -48,6 +47,10 @@ func ExistsBuiltIn(name string) bool {
 		return true
 	case "isAlphaNumeric":
 		return true
+	case "toUnicode":
+		return true
+	case "fromUnicode":
+		return true
 	default:
 		return false
 	}
@@ -60,38 +63,42 @@ func ExistsBuiltIn(name string) bool {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func RunBuiltIn(name string, args []*Variable) (*Variable, error) {
+func RunBuiltIn(name string, args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	switch name {
 	case "print":
-		return Print(args)
+		return Print(args, startLine)
 	case "toString":
-		return ToString(args)
+		return ToString(args, startLine)
 	case "toInt":
-		return ToInt(args)
+		return ToInt(args, startLine)
 	case "toFloat":
-		return ToFloat(args)
+		return ToFloat(args, startLine)
 	case "yell":
-		return Yell(args)
+		return Yell(args, startLine)
 	case "whisper":
-		return Whisper(args)
+		return Whisper(args, startLine)
 	case "typeOf":
-		return TypeOf(args)
+		return TypeOf(args, startLine)
 	case "len":
-		return Len(args)
+		return Len(args, startLine)
 	case "random":
-		return Random(args)
+		return Random(args, startLine)
 	case "append":
-		return Append(args)
+		return Append(args, startLine)
 	case "truncate":
-		return Truncate(args)
+		return Truncate(args, startLine)
 	case "round":
-		return Round(args)
+		return Round(args, startLine)
 	case "sqrt":
-		return Sqrt(args)
+		return Sqrt(args, startLine)
 	case "isNumeric":
-		return IsNumeric(args)
+		return IsNumeric(args, startLine)
 	case "isAlphaNumeric":
-		return IsAlphaNumeric(args)
+		return IsAlphaNumeric(args, startLine)
+	case "toUnicode":
+		return ToUnicode(args, startLine)
+	case "fromUnicode":
+		return FromUnicode(args, startLine)
 	default:
 		return NullVariable(), nil
 	}
@@ -103,7 +110,7 @@ func RunBuiltIn(name string, args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func Print(args []*Variable) (*Variable, error) {
+func Print(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	msg := ""
 	for i, arg := range args {
 
@@ -149,7 +156,7 @@ func Print(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func ToString(args []*Variable) (*Variable, error) {
+func ToString(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) == 1 {
 		switch args[0].Type {
 		case "string":
@@ -174,7 +181,7 @@ func ToString(args []*Variable) (*Variable, error) {
 			return NullVariable(), nil
 		}
 	} else {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"toString\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"toString\"", startLine)
 	}
 }
 
@@ -184,16 +191,16 @@ func ToString(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func ToInt(args []*Variable) (*Variable, error) {
+func ToInt(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"toInt\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"toInt\"", startLine)
 	}
 
 	switch args[0].Type {
 	case "string":
 		i, err := strconv.ParseInt(args[0].Value.(string), 10, 64)
 		if err != nil {
-			return NullVariable(), errors.New("Error: String is not a number or is too large to be converted to an int for \"toInt\"")
+			return NullVariable(), CreateError("Error: String is not a number or is too large to be converted to an int for \"toInt\"", startLine)
 		}
 		variable := CreateVariable(i)
 		return &variable, nil
@@ -205,7 +212,7 @@ func ToInt(args []*Variable) (*Variable, error) {
 		variable := CreateVariable(i)
 		return &variable, nil
 	default:
-		return NullVariable(), errors.New("Error: Argument must be a string or a number for \"toInt\"")
+		return NullVariable(), CreateError("Error: Argument must be a string or a number for \"toInt\"", startLine)
 	}
 
 }
@@ -216,16 +223,16 @@ func ToInt(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func ToFloat(args []*Variable) (*Variable, error) {
+func ToFloat(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"toFloat\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"toFloat\"", startLine)
 	}
 
 	switch args[0].Type {
 	case "string":
 		f, err := strconv.ParseFloat(args[0].Value.(string), 64)
 		if err != nil {
-			return NullVariable(), errors.New("Error: String is not a number or is too large to be converted to a float for \"toFloat\"")
+			return NullVariable(), CreateError("Error: String is not a number or is too large to be converted to a float for \"toFloat\"", startLine)
 		}
 		variable := CreateVariable(f)
 		return &variable, nil
@@ -237,7 +244,7 @@ func ToFloat(args []*Variable) (*Variable, error) {
 		variable := CreateVariable(args[0].Value.(float64))
 		return &variable, nil
 	default:
-		return NullVariable(), errors.New("Error: Argument must be a string or a number for \"toFloat\"")
+		return NullVariable(), CreateError("Error: Argument must be a string or a number for \"toFloat\"", startLine)
 	}
 }
 
@@ -247,14 +254,14 @@ func ToFloat(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func Whisper(args []*Variable) (*Variable, error) {
+func Whisper(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"whisper\"")
+		return NullVariable(), CreateError("Error: Expected 1 string argument for \"whisper\"", startLine)
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Error: Argument must be a string for \"whisper\"")
+		return NullVariable(), CreateError("Error: Argument must be a string for \"whisper\"", startLine)
 	}
 
 	// Lowercase the string
@@ -269,14 +276,14 @@ func Whisper(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
 **/
-func Yell(args []*Variable) (*Variable, error) {
+func Yell(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument ofr \"yell\"")
+		return NullVariable(), CreateError("Error: Expected 1 string argument for \"yell\"", startLine)
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Error: Argument must be a string for \"yell\"")
+		return NullVariable(), CreateError("Error: Argument must be a string for \"yell\"", startLine)
 	}
 
 	// Uppercase the string
@@ -291,22 +298,22 @@ func Yell(args []*Variable) (*Variable, error) {
  * @return *Variable - The result of the function.
  * @return error - The error if one occurs.
  */
-func TypeOf(args []*Variable) (*Variable, error) {
+func TypeOf(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"typeof\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"typeOf\"", startLine)
 	}
 
 	variable := CreateVariable(args[0].Type)
 	return &variable, nil
 }
 
-func Len(args []*Variable) (*Variable, error) {
+func Len(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument for \"len\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"len\"", startLine)
 	}
 
 	if !isArrayType(args[0].Type) && args[0].Type != "string" {
-		return NullVariable(), errors.New("Error: Expected an array or string as the argument for \"len\"")
+		return NullVariable(), CreateError("Error: Argument must be an array or a string for \"len\"", startLine)
 	}
 
 	if args[0].Type == "string" {
@@ -318,9 +325,9 @@ func Len(args []*Variable) (*Variable, error) {
 	}
 }
 
-func Random(args []*Variable) (*Variable, error) {
+func Random(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) > 0 {
-		return NullVariable(), errors.New("Error: Expected 0 argument for \"random\"")
+		return NullVariable(), CreateError("Error: Expected 0 arguments for \"random\"", startLine)
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -328,14 +335,14 @@ func Random(args []*Variable) (*Variable, error) {
 	return &variable, nil
 }
 
-func Append(args []*Variable) (*Variable, error) {
+func Append(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 
 	if len(args) != 2 {
-		return NullVariable(), errors.New("Error: Expected 2 arguments (array, val) for \"append\"")
+		return NullVariable(), CreateError("Error: Expected 2 arguments for \"append\"", startLine)
 	}
 
 	if !isArrayType(args[0].Type) {
-		return NullVariable(), errors.New("Error: Expected an array as the first argument for \"append\"")
+		return NullVariable(), CreateError("Error: Argument 1 must be an array for \"append\"", startLine)
 	}
 
 	// Get allowed types
@@ -343,7 +350,7 @@ func Append(args []*Variable) (*Variable, error) {
 
 	if allowedType != "val" {
 		if args[1].Type != allowedType {
-			return NullVariable(), errors.New("Error: Expected a " + allowedType + " as the second argument for \"append\"")
+			return NullVariable(), CreateError("Error: Argument 2 must be a "+allowedType+" for \"append\"", startLine)
 		}
 
 		// Append the value
@@ -363,22 +370,22 @@ func Append(args []*Variable) (*Variable, error) {
 
 }
 
-func Truncate(args []*Variable) (*Variable, error) {
+func Truncate(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 2 {
-		return NullVariable(), errors.New("Error: Expected 2 arguments (array, int) for \"truncate\"")
+		return NullVariable(), CreateError("Error: Expected 2 arguments for \"truncate\"", startLine)
 	}
 
 	if !isArrayType(args[0].Type) {
-		return NullVariable(), errors.New("Error: Expected an array as the first argument for \"truncate\"")
+		return NullVariable(), CreateError("Error: Argument 1 must be an array for \"truncate\"", startLine)
 	}
 
 	if args[1].Type != "int" {
-		return NullVariable(), errors.New("Error: Expected second argument must be an int for \"truncate\"")
+		return NullVariable(), CreateError("Error: Argument 2 must be an int for \"truncate\"", startLine)
 	}
 
 	// Get size and index
 	array := args[0]
-	size, err := GetArraySize(array)
+	size, err := GetArraySize(array, startLine)
 	if err != nil {
 		return NullVariable(), err
 	}
@@ -414,13 +421,13 @@ func Truncate(args []*Variable) (*Variable, error) {
 	return &variable, nil
 }
 
-func Round(args []*Variable) (*Variable, error) {
+func Round(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument (float) for \"round\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"round\"", startLine)
 	}
 
 	if args[0].Type != "float" {
-		return NullVariable(), errors.New("Error: Argument must be a float for \"round\"")
+		return NullVariable(), CreateError("Error: Argument must be a float for \"round\"", startLine)
 	}
 
 	// Round the float
@@ -429,13 +436,13 @@ func Round(args []*Variable) (*Variable, error) {
 	return &variable, nil
 }
 
-func Sqrt(args []*Variable) (*Variable, error) {
+func Sqrt(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 argument (float) for \"sqrt\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"sqrt\"", startLine)
 	}
 
 	if args[0].Type != "float" && args[0].Type != "int" {
-		return NullVariable(), errors.New("Error: Argument must be a numeric type for \"sqrt\"")
+		return NullVariable(), CreateError("Error: Argument must be a float or an int for \"sqrt\"", startLine)
 	}
 
 	// Square root the float
@@ -443,7 +450,7 @@ func Sqrt(args []*Variable) (*Variable, error) {
 		f := args[0].Value.(float64)
 
 		if f < 0 {
-			return NullVariable(), errors.New("Error: Argument must be a positive float for \"sqrt\"")
+			return NullVariable(), CreateError("Error: Argument must be a positive float for \"sqrt\"", startLine)
 		}
 
 		variable := CreateVariable(math.Sqrt(f))
@@ -452,7 +459,7 @@ func Sqrt(args []*Variable) (*Variable, error) {
 		i := args[0].Value.(int64)
 
 		if i < 0 {
-			return NullVariable(), errors.New("Error: Argument must be a positive integer for \"sqrt\"")
+			return NullVariable(), CreateError("Error: Argument must be a positive int for \"sqrt\"", startLine)
 		}
 
 		variable := CreateVariable(math.Sqrt(float64(i)))
@@ -460,13 +467,13 @@ func Sqrt(args []*Variable) (*Variable, error) {
 	}
 }
 
-func IsNumeric(args []*Variable) (*Variable, error) {
+func IsNumeric(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 string argument for \"isNumeric\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"isNumeric\"", startLine)
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Error: Argument must be a string for \"isNumeric\"")
+		return NullVariable(), CreateError("Error: Argument must be a string for \"isNumeric\"", startLine)
 	}
 
 	// Check if the string is numeric
@@ -481,13 +488,13 @@ func IsNumeric(args []*Variable) (*Variable, error) {
 	}
 }
 
-func IsAlphaNumeric(args []*Variable) (*Variable, error) {
+func IsAlphaNumeric(args []*Variable, startLine int) (*Variable, *ErrorStack) {
 	if len(args) != 1 {
-		return NullVariable(), errors.New("Error: Expected 1 string argument for \"isNumeric\"")
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"isAlphaNumeric\"", startLine)
 	}
 
 	if args[0].Type != "string" {
-		return NullVariable(), errors.New("Error: Argument must be a string for \"isNumeric\"")
+		return NullVariable(), CreateError("Error: Argument must be a string for \"isAlphaNumeric\"", startLine)
 	}
 
 	for _, c := range args[0].Value.(string) {
@@ -500,4 +507,36 @@ func IsAlphaNumeric(args []*Variable) (*Variable, error) {
 	variable := CreateVariable(true)
 	return &variable, nil
 
+}
+
+func ToUnicode(args []*Variable, startLine int) (*Variable, *ErrorStack) {
+	if len(args) != 1 {
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"toUnicode\"", startLine)
+	}
+
+	if args[0].Type != "string" {
+		return NullVariable(), CreateError("Error: Argument must be a string for \"toUnicode\"", startLine)
+	}
+
+	if len(args[0].Value.(string)) != 1 {
+		return NullVariable(), CreateError("Error: String argument must be of size 1 for \"toUnicode\"", startLine)
+	}
+
+	// Convert the string to unicode
+	variable := CreateVariable(int64(args[0].Value.(string)[0]))
+	return &variable, nil
+}
+
+func FromUnicode(args []*Variable, startLine int) (*Variable, *ErrorStack) {
+	if len(args) != 1 {
+		return NullVariable(), CreateError("Error: Expected 1 argument for \"fromUnicode\"", startLine)
+	}
+
+	if args[0].Type != "int" {
+		return NullVariable(), CreateError("Error: Argument must be an integer for \"fromUnicode\"", startLine)
+	}
+
+	// Convert the unicode to string
+	variable := CreateVariable(string(rune(args[0].Value.(int64))))
+	return &variable, nil
 }

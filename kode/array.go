@@ -1,7 +1,6 @@
 package kode
 
 import (
-	"errors"
 	"math"
 	"strings"
 )
@@ -37,7 +36,7 @@ func EvaluateArrayType(array []Variable) string {
  * @return []Variable - Resulting array.
  * @return error - The error if one occurs.
  */
-func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable, error) {
+func (scope *Function) ExtractArrayValues(queue *Queue, depth int64, startLine int) ([]Variable, *ErrorStack) {
 
 	// Extract the array's value
 	nestedArray := 0
@@ -62,7 +61,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable
 		if nextToken.(string) == "," && nestedArray == 0 && !isInString {
 			// Evaluate the parameter
 			//println(tmpVal)
-			parameter, err := EvaluateExpression(scope, tmpVal, depth)
+			parameter, err := EvaluateExpression(scope, tmpVal, depth, startLine)
 			if err != nil {
 				return []Variable{}, err
 			}
@@ -86,7 +85,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable
 	// Add last value
 	if tmpVal != "" {
 		//println(tmpVal)
-		parameter, err := EvaluateExpression(scope, tmpVal, depth)
+		parameter, err := EvaluateExpression(scope, tmpVal, depth, startLine)
 		if err != nil {
 			return []Variable{}, err
 		}
@@ -94,7 +93,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable
 	}
 
 	if !closedArray {
-		return []Variable{}, errors.New("Error: Missing closing bracket for array")
+		return []Variable{}, CreateError("Error: Array not closed", startLine)
 	}
 
 	return array, nil
@@ -106,7 +105,7 @@ func (scope *Function) ExtractArrayValues(queue *Queue, depth int64) ([]Variable
  * @return int - The dimension.
  * @return error - The error if one occurs.
  */
-func ExtractArrayDimensionFromDeclaration(tokens *Queue) (int, error) {
+func ExtractArrayDimensionFromDeclaration(tokens *Queue, startLine int) (int, *ErrorStack) {
 	// Check for array dimension
 	// Check for square brackets
 	dimension := 0.0
@@ -139,7 +138,7 @@ func ExtractArrayDimensionFromDeclaration(tokens *Queue) (int, error) {
 	// Update the type according to dimmension
 	_, fraction := math.Modf(dimension)
 	if fraction != 0 {
-		return 0, errors.New("Error: Invalid array dimension decleration")
+		return 0, CreateError("Error: Invalid array dimension at declaration", startLine)
 	}
 	return int(dimension), nil
 }
@@ -159,12 +158,12 @@ func isArrayType(strType string) bool {
  * @return int64 - The size of the array or string.
  * @return error - The error if one occurs.
  */
-func GetArraySize(variable *Variable) (int64, error) {
+func GetArraySize(variable *Variable, startLine int) (int64, *ErrorStack) {
 	if isArrayType(variable.Type) {
 
 		size := int64(len((*variable).Value.([]Variable)))
 		if size == 0 {
-			return 0, errors.New("Error: Array is empty")
+			return 0, CreateError("Error: Array is empty", startLine)
 		}
 		return size, nil
 
@@ -172,11 +171,11 @@ func GetArraySize(variable *Variable) (int64, error) {
 
 		size := int64(len((*variable).Value.(string)))
 		if size == 0 {
-			return 0, errors.New("Error: String is empty")
+			return 0, CreateError("Error: String is empty", startLine)
 		}
 		return size, nil
 
 	} else {
-		return 0, errors.New("Error: Cannot get array size of non-array type")
+		return 0, CreateError("Error: Cannot get array size of non-array type", startLine)
 	}
 }

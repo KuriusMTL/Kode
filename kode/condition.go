@@ -1,10 +1,5 @@
 package kode
 
-import (
-	"errors"
-	"strconv"
-)
-
 // ! ConditionBlock : A block of code that has a condition.
 // -------------------------
 // ! Condition : The condition of the block.
@@ -27,7 +22,7 @@ type ConditionBlock struct {
  * @return int - The ending index line of the condition block(s).
  * @return error - The error if any.
  */
-func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]ConditionBlock, int, error) {
+func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string, startLine int) ([]ConditionBlock, int, *ErrorStack) {
 
 	// Get the condition as a string
 	// Get the rest of the line tokens and join them to feed the condition
@@ -66,7 +61,7 @@ func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]Con
 				}
 			}
 
-			// Apppend the new condition block to the list
+			// Append the new condition block to the list
 			conditionBlocks = append(conditionBlocks, ConditionBlock{ifElseCondition, currentLine, ""})
 			currentLine++ // Skip to next line to avoid including the condition ending in the code
 			continue
@@ -82,7 +77,7 @@ func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]Con
 
 			} else {
 
-				// Apppend the condition block to the list
+				// Append the condition block to the list
 				conditionBlocks = append(conditionBlocks, ConditionBlock{"else", currentLine, ""})
 				currentLine++
 				continue
@@ -105,7 +100,7 @@ func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]Con
 				// Ignore the end if and continue
 				nestedBlocksCount--
 
-				// Dont forget to add the current line to the condition block
+				// Don't forget to add the current line to the condition block
 				conditionBlocks[len(conditionBlocks)-1].Code += lines[currentLine] + "\n"
 
 			}
@@ -124,7 +119,7 @@ func ParseConditionBlocks(tokens *Queue, currentLine int, lines []string) ([]Con
 	// Check if the end of the block was found
 	// e.g. "end if"
 	if !foundBoundary {
-		return []ConditionBlock{}, currentLine, errors.New("Error: Missing ending statement \"end if\" for the condition on line " + strconv.Itoa(conditionBlocks[len(conditionBlocks)-1].ConditionIndex+1) + ".")
+		return []ConditionBlock{}, currentLine, CreateError("Condition block not closed with \"end if\"", conditionBlocks[len(conditionBlocks)-1].ConditionIndex+1+startLine)
 	}
 
 	// Return the condition blocks

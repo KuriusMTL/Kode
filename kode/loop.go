@@ -1,14 +1,12 @@
 package kode
 
-import "errors"
-
 type LoopBlock struct {
 	Condition string
 	Code      string
 	LoopIndex int
 }
 
-func ParseLoopBlock(tokens *Queue, currentLine int, lines []string) (LoopBlock, int, error) {
+func ParseLoopBlock(tokens *Queue, currentLine int, lines []string, startLine int) (LoopBlock, int, *ErrorStack) {
 
 	condition := InlineQueueToString(tokens)
 
@@ -44,7 +42,7 @@ func ParseLoopBlock(tokens *Queue, currentLine int, lines []string) (LoopBlock, 
 	}
 
 	if !foundBoundary {
-		return LoopBlock{}, currentLine, errors.New("Could not find the end of the for loop")
+		return LoopBlock{}, currentLine, CreateError("Unable to find the end of the loop block", startIndex)
 	}
 
 	return LoopBlock{condition, code, startIndex}, currentLine, nil
